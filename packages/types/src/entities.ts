@@ -171,6 +171,8 @@ export const SteleAsset = z.object({
   rightsState: RightsState,
   qualityReport: QualityReport.nullable().default(null),
   storageKey: z.string().nullable().default(null),
+  /** 가상 데모 메시의 절차 생성 파라미터 (VIRTUAL_DEMO 전용) */
+  meshParams: z.record(z.unknown()).nullable().default(null),
   createdAt: z.string(),
 });
 export type SteleAsset = z.infer<typeof SteleAsset>;
