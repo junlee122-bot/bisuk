@@ -1,0 +1,339 @@
+{
+  "manifestVersion": "1.0",
+  "researchSet": {
+    "id": "early-korean-stelae-comparative",
+    "name": "고구려·초기 신라 비문 비교",
+    "description": "연구가 축적된 기준 비석과 신규·미해결 비석을 한 연구 세트에서 교차 검증하기 위한 초기 구성",
+    "researchQuestion": "고구려계·초기 신라계 비문의 서체·어휘·형식은 어떻게 연결되는가?",
+    "periodRange": "4세기-9세기",
+    "regions": ["충청북도 충주", "경상북도 울진", "경주", "지안(集安)", "경상남도 창녕"],
+    "scripts": ["한문 해서·예서 계열"],
+    "languages": ["고전 한문"],
+    "rightsPolicy": "각 자산의 항목별 공공누리·저작권 상태를 확인하기 전에는 재배포하지 않는다.",
+    "defaultPrimaryTabId": "chungju-goguryeobi"
+  },
+  "tabs": [
+    {
+      "id": "chungju-goguryeobi",
+      "title": "충주 고구려비",
+      "canonicalName": "충주 고구려비",
+      "alternativeNames": ["중원 고구려비"],
+      "roles": ["PRIMARY", "BENCHMARK", "COMPARATIVE"],
+      "assetMode": "MIXED",
+      "initialStatus": "SOURCE_METADATA_READY",
+      "periodEstimate": "고구려 (5세기 추정)",
+      "location": "충청북도 충주시",
+      "material": "화강암",
+      "rightsState": "VERIFY_PER_ASSET",
+      "sourceQuality": 0.85,
+      "questions": [
+        "미판독 문자에서 시각·3D·RTI 근거가 어떻게 달라지는가?",
+        "기존 공동 판독안과 독립 자동 판독의 차이는 무엇인가?",
+        "광개토대왕릉비·지안 고구려비와 연결되는 어휘와 서체는 무엇인가?"
+      ],
+      "maturityScores": {
+        "sourceScore": 90,
+        "geometryScore": 80,
+        "imageScore": 85,
+        "transcriptionScore": 75,
+        "bibliographyScore": 85,
+        "independentTeamScore": 80,
+        "chronologyConsensusScore": 60,
+        "purposeConsensusScore": 65,
+        "openDataScore": 70,
+        "rightsClarityScore": 55
+      },
+      "sourceRecords": [
+        {
+          "id": "src-chungju-3d-index",
+          "type": "OFFICIAL_3D_INDEX",
+          "publisher": "국가유산청 국가유산 디지털 서비스",
+          "url": "https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13898748266282900420&ctptNo=1113302050000&ctptUid=13898859666514200070",
+          "expectedFormats": ["PLY", "STL", "ICF", "PDF"],
+          "acquisition": "MANUAL_DOWNLOAD_AFTER_LICENSE_CHECK",
+          "rightsState": "VERIFY_PER_ASSET",
+          "reliabilityTier": 1,
+          "independenceGroup": "khs-digital",
+          "notes": "공식 3D 자산 목록. 앱은 원본 파일을 자동 수집하지 않으며, 이용 조건 확인 후 관리자가 직접 내려받아 등록한다."
+        },
+        {
+          "id": "src-chungju-heritage-record",
+          "type": "OFFICIAL_HERITAGE_RECORD",
+          "publisher": "국가유산청 국가유산포털",
+          "url": "https://www.heritage.go.kr/heri/cul/culSelectDetail.do?VdkVgwKey=11%2C02050000%2C33",
+          "expectedFormats": [],
+          "acquisition": "METADATA_ONLY",
+          "rightsState": "METADATA_ONLY",
+          "reliabilityTier": 1,
+          "independenceGroup": "khs-portal",
+          "notes": "국보 지정 기록 메타데이터."
+        },
+        {
+          "id": "src-chungju-research-summary",
+          "type": "RESEARCH_SUMMARY",
+          "publisher": "동북아역사재단",
+          "url": "https://www.nahf.or.kr/web/portal/webzine/774/63724",
+          "expectedFormats": [],
+          "acquisition": "CITATION_AND_METADATA",
+          "rightsState": "METADATA_ONLY",
+          "reliabilityTier": 2,
+          "independenceGroup": "nahf",
+          "notes": "연구 동향 요약. 인용·서지 메타데이터로만 사용."
+        }
+      ]
+    },
+    {
+      "id": "gwanggaeto-stele",
+      "title": "광개토대왕릉비",
+      "canonicalName": "광개토대왕릉비",
+      "alternativeNames": ["호태왕비"],
+      "roles": ["COMPARATIVE", "REFERENCE_ONLY"],
+      "assetMode": "MIXED",
+      "initialStatus": "METADATA_AND_LITERATURE_READY",
+      "periodEstimate": "고구려 (414년)",
+      "location": "중국 지린성 지안시",
+      "material": "응회암",
+      "rightsState": "VERIFY_REQUIRED",
+      "sourceQuality": 0.8,
+      "restrictions": [
+        "공개 원시 3D 모델이 확인되지 않으면 문헌·이미지 비교 탭으로만 사용",
+        "논쟁 판독을 단일 정답으로 병합하지 않음"
+      ],
+      "maturityScores": {
+        "sourceScore": 85,
+        "geometryScore": 20,
+        "imageScore": 70,
+        "transcriptionScore": 80,
+        "bibliographyScore": 95,
+        "independentTeamScore": 90,
+        "chronologyConsensusScore": 85,
+        "purposeConsensusScore": 70,
+        "openDataScore": 30,
+        "rightsClarityScore": 40
+      },
+      "sourceRecords": [
+        {
+          "id": "src-gwanggaeto-digital-exhibit",
+          "type": "DIGITAL_EXHIBIT",
+          "publisher": "국립중앙박물관",
+          "url": "https://www.museum.go.kr/site/eng/content/digital_realistic_9",
+          "expectedFormats": [],
+          "acquisition": "METADATA_ONLY",
+          "rightsState": "VERIFY_REQUIRED",
+          "reliabilityTier": 1,
+          "independenceGroup": "nmk",
+          "notes": "디지털 전시 존재가 원본 정밀 3D 공개를 의미하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "uljin-bongpyeong-stele",
+      "title": "울진 봉평리 신라비",
+      "canonicalName": "울진 봉평리 신라비",
+      "alternativeNames": ["봉평비"],
+      "roles": ["BENCHMARK", "COMPARATIVE"],
+      "assetMode": "MESH_3D",
+      "initialStatus": "SOURCE_METADATA_READY",
+      "periodEstimate": "신라 (524년 추정)",
+      "location": "경상북도 울진군",
+      "material": "화강암",
+      "rightsState": "VERIFY_PER_ASSET",
+      "sourceQuality": 0.85,
+      "questions": [
+        "서로 다른 3D 해상도에서 문자 가시화 성능이 얼마나 달라지는가?",
+        "초기 신라 자형과 고구려 자형의 공통·차이 요소는 무엇인가?"
+      ],
+      "maturityScores": {
+        "sourceScore": 90,
+        "geometryScore": 85,
+        "imageScore": 80,
+        "transcriptionScore": 80,
+        "bibliographyScore": 80,
+        "independentTeamScore": 75,
+        "chronologyConsensusScore": 80,
+        "purposeConsensusScore": 75,
+        "openDataScore": 70,
+        "rightsClarityScore": 55
+      },
+      "sourceRecords": [
+        {
+          "id": "src-uljin-3d-index",
+          "type": "OFFICIAL_3D_INDEX",
+          "publisher": "국가유산청 국가유산 디지털 서비스",
+          "url": "https://digital.khs.go.kr/buis/buisDetail.do?bizUid=13898748266282900420&ctptNo=1113702420000&ctptUid=13898859666613200078",
+          "expectedFormats": ["PLY", "STL", "ASC", "ICF", "PDF"],
+          "acquisition": "MANUAL_DOWNLOAD_AFTER_LICENSE_CHECK",
+          "rightsState": "VERIFY_PER_ASSET",
+          "reliabilityTier": 1,
+          "independenceGroup": "khs-digital",
+          "notes": "PLY·STL·ASC 등 다양한 형식 처리 검증 대상. 관리자 수동 등록 전용."
+        }
+      ]
+    },
+    {
+      "id": "wolseong-stele-fragments",
+      "title": "경주 월성 비석 조각",
+      "canonicalName": "경주 월성 출토 비석 조각",
+      "alternativeNames": [],
+      "roles": ["FRONTIER", "FRAGMENT_SET"],
+      "assetMode": "FRAGMENT_SET",
+      "initialStatus": "INSTITUTION_CONFIRMED",
+      "periodEstimate": "신라 (미확정)",
+      "location": "경상북도 경주시 월성",
+      "material": "석재",
+      "rightsState": "KOGL_TYPE_4_OR_ITEM_SPECIFIC",
+      "sourceQuality": 0.6,
+      "knownFacts": [
+        "1937년 발견 조각과 2020년 발견 조각이 3D 스캔으로 접합됨",
+        "총 16자 중 판독 가능·추정 가능·미판독 문자가 함께 존재",
+        "건립 주체·시기·목적은 미확정"
+      ],
+      "questions": [
+        "추가 조각 발견 시 접합과 판독 가설을 어떻게 자동 갱신할 것인가?"
+      ],
+      "maturityScores": {
+        "sourceScore": 70,
+        "geometryScore": 40,
+        "imageScore": 50,
+        "transcriptionScore": 35,
+        "bibliographyScore": 30,
+        "independentTeamScore": 25,
+        "chronologyConsensusScore": 15,
+        "purposeConsensusScore": 10,
+        "openDataScore": 20,
+        "rightsClarityScore": 60
+      },
+      "frontierSignals": {
+        "unresolvedCharacterRatio": 0.5,
+        "historicalImportance": 0.8,
+        "discoveryRecency": 0.7,
+        "missingContextScore": 0.85,
+        "dataScarcity": 0.6,
+        "disagreementScore": 0.4,
+        "crossSteleConnectivity": 0.5
+      },
+      "sourceRecords": [
+        {
+          "id": "src-wolseong-exhibition",
+          "type": "OFFICIAL_EXHIBITION_RECORD",
+          "publisher": "국립경주박물관",
+          "url": "https://gyeongju.museum.go.kr/kor/html/sub02/0202.html?d_mng_no=223&mode=VD",
+          "expectedFormats": [],
+          "acquisition": "METADATA_AND_ALLOWED_TEXT",
+          "rightsState": "KOGL_TYPE_4_OR_ITEM_SPECIFIC",
+          "reliabilityTier": 1,
+          "independenceGroup": "gyeongju-museum",
+          "notes": "전시 기록. 항목별 공공누리 유형 확인 필요."
+        }
+      ]
+    },
+    {
+      "id": "jian-goguryeo-stele",
+      "title": "지안 고구려비",
+      "canonicalName": "지안 고구려비",
+      "alternativeNames": ["집안 고구려비"],
+      "roles": ["FRONTIER", "COMPARATIVE", "REFERENCE_ONLY"],
+      "assetMode": "TRANSCRIPTION_ONLY",
+      "initialStatus": "BASIC_REPORT_AVAILABLE",
+      "periodEstimate": "고구려 (연대 논쟁 중)",
+      "location": "중국 지린성 지안시",
+      "material": "화강암",
+      "rightsState": "VERIFY_REQUIRED",
+      "sourceQuality": 0.6,
+      "questions": [
+        "발견 위치와 원래 설치 위치의 관계는 무엇인가?",
+        "충주·광개토 비와 형식·수묘 관련 어휘가 어떻게 연결되는가?"
+      ],
+      "maturityScores": {
+        "sourceScore": 65,
+        "geometryScore": 10,
+        "imageScore": 45,
+        "transcriptionScore": 50,
+        "bibliographyScore": 60,
+        "independentTeamScore": 55,
+        "chronologyConsensusScore": 30,
+        "purposeConsensusScore": 40,
+        "openDataScore": 15,
+        "rightsClarityScore": 35
+      },
+      "frontierSignals": {
+        "unresolvedCharacterRatio": 0.45,
+        "historicalImportance": 0.9,
+        "discoveryRecency": 0.5,
+        "missingContextScore": 0.7,
+        "dataScarcity": 0.75,
+        "disagreementScore": 0.8,
+        "crossSteleConnectivity": 0.9
+      },
+      "sourceRecords": [
+        {
+          "id": "src-jian-history-db",
+          "type": "PRIMARY_HISTORY_DATABASE_RECORD",
+          "publisher": "국사편찬위원회 한국사데이터베이스",
+          "url": "https://db.history.go.kr/id/gskh_001_0010_0020_0010",
+          "expectedFormats": [],
+          "acquisition": "CITATION_AND_METADATA",
+          "rightsState": "VERIFY_REQUIRED",
+          "reliabilityTier": 1,
+          "independenceGroup": "nikh",
+          "notes": "판독문 데이터베이스 기록. 인용·메타데이터로만 사용."
+        }
+      ]
+    },
+    {
+      "id": "changnyeong-gwanryongsan-stele",
+      "title": "창녕 관룡산 통일신라 사찰 토지 공증비",
+      "canonicalName": "창녕 관룡산 통일신라 사찰 토지 공증비 (가칭)",
+      "alternativeNames": [],
+      "roles": ["WATCHLIST", "FRONTIER"],
+      "assetMode": "METADATA_ONLY",
+      "initialStatus": "PRELIMINARY_READING",
+      "periodEstimate": "통일신라 9세기 중엽 (1차 판독)",
+      "location": "경상남도 창녕군 관룡산",
+      "material": "석재",
+      "rightsState": "NO_IMAGE_REDISTRIBUTION_UNTIL_CLEARED",
+      "sourceQuality": 0.3,
+      "preliminaryClaims": [
+        "9세기 중엽 통일신라시대 자료로 1차 판독됨",
+        "개심방 관련 토지 소유 공증 내용으로 해석됨",
+        "승관 이름과 답반 또는 번답 관련 어휘가 보고됨"
+      ],
+      "warnings": ["1차 판독 단계", "정밀 판독과 학술 검토 예정", "사진 재배포 금지"],
+      "maturityScores": {
+        "sourceScore": 40,
+        "geometryScore": 0,
+        "imageScore": 10,
+        "transcriptionScore": 15,
+        "bibliographyScore": 5,
+        "independentTeamScore": 5,
+        "chronologyConsensusScore": 20,
+        "purposeConsensusScore": 25,
+        "openDataScore": 0,
+        "rightsClarityScore": 10
+      },
+      "frontierSignals": {
+        "unresolvedCharacterRatio": 0.7,
+        "historicalImportance": 0.6,
+        "discoveryRecency": 1.0,
+        "missingContextScore": 0.8,
+        "dataScarcity": 0.95,
+        "disagreementScore": 0.3,
+        "crossSteleConnectivity": 0.3
+      },
+      "sourceRecords": [
+        {
+          "id": "src-changnyeong-discovery",
+          "type": "DISCOVERY_REPORT",
+          "publisher": "창녕군 제공 보도 기반",
+          "url": "https://www.newsis.com/view/NISX20260702_0003693724",
+          "expectedFormats": [],
+          "acquisition": "METADATA_ONLY",
+          "rightsState": "NO_IMAGE_REDISTRIBUTION_UNTIL_CLEARED",
+          "reliabilityTier": 5,
+          "independenceGroup": "changnyeong-press",
+          "notes": "발견 보도. 사진 권리 확인 전 썸네일 포함 재배포 금지."
+        }
+      ]
+    }
+  ]
+}

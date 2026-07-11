@@ -1,0 +1,23 @@
+node_modules/
+.next/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.local
+
+# 런타임 데이터 (원본/파생 자산, SQLite) — 실제 유산 파일을 저장소에 커밋하지 않는다
+.data/
+apps/api/.data/
+*.db
+*.db-journal
+*.sqlite
+
+# Playwright
+e2e/test-results/
+e2e/playwright-report/
+e2e/.playwright/
+test-results/
+playwright-report/

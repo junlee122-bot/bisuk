@@ -1,0 +1,245 @@
+{
+  "note": "허구 문헌 코퍼스. 모든 문서는 데모용 창작물이며 실제 논문·기사·보고서가 아니다. 실제 논문 제목을 모방하지 않는다.",
+  "documents": [
+    {
+      "id": "doc-rubbing-alpha",
+      "title": "[가상 문헌] 가상비 DEMO-A 탁본 조사 기록 갑(甲)",
+      "docType": "SURVEY_REPORT",
+      "publisher": "가상 금석문 조사회",
+      "publishedAt": "1999-05-01",
+      "reliabilityTier": 3,
+      "independenceGroup": "G1-rubbing-alpha",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 가상비 DEMO-A의 전면 탁본을 검토한 결과를 기록한다. 제1행은 王國大 이하 마모가 있으나 대체로 안정적이다. 제2행 제3자는 갓머리 아래 획의 흔적으로 보아 安으로 판독함이 타당하다. 제3행 제5자는 마모가 심하여 본 조사에서는 판독을 유보한다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "SUPPORT",
+          "quote": "제2행 제3자는 갓머리 아래 획의 흔적으로 보아 安으로 판독함이 타당하다"
+        }
+      ]
+    },
+    {
+      "id": "doc-paper-beta",
+      "title": "[가상 문헌] DEMO-A 가상비 제2행 재검토 시론",
+      "docType": "PEER_REVIEWED",
+      "publisher": "가상 고대사 학술지",
+      "publishedAt": "2008-11-01",
+      "reliabilityTier": 2,
+      "independenceGroup": "G1-rubbing-alpha",
+      "derivedFromDocumentId": "doc-rubbing-alpha",
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 갑본 탁본에 근거한 기존 판독을 재검토하였다. 탁본 갑본을 재검토한 결과 제2행 제3자를 安으로 읽는 견해를 지지한다. 다만 이는 갑본 탁본이라는 단일 계보 자료에 의존한 판단임을 명시한다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "SUPPORT",
+          "quote": "탁본 갑본을 재검토한 결과 제2행 제3자를 安으로 읽는 견해를 지지한다"
+        }
+      ]
+    },
+    {
+      "id": "doc-news-gamma",
+      "title": "[가상 문헌] 가상비 DEMO-A 판독 성과 보도",
+      "docType": "NEWS",
+      "publisher": "가상 문화면 뉴스",
+      "publishedAt": "2009-01-15",
+      "reliabilityTier": 5,
+      "independenceGroup": "G1-rubbing-alpha",
+      "derivedFromDocumentId": "doc-paper-beta",
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 학계 소식이다. 연구진은 문제의 글자를 安으로 판독했다고 밝혔다. 이는 앞선 학술지 논문을 요약 보도한 것이다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "SUPPORT",
+          "quote": "연구진은 문제의 글자를 安으로 판독했다고 밝혔다"
+        }
+      ]
+    },
+    {
+      "id": "doc-book-delta",
+      "title": "[가상 문헌] 가상 금석문 개설서 (재인용판)",
+      "docType": "CONFERENCE",
+      "publisher": "가상 출판사",
+      "publishedAt": "2015-03-01",
+      "reliabilityTier": 4,
+      "independenceGroup": "G1-rubbing-alpha",
+      "derivedFromDocumentId": "doc-rubbing-alpha",
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 개설서 성격의 자료로, 갑본 판독을 따라 安으로 소개한다. 독자적 재판독은 수행하지 않았다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "SUPPORT",
+          "quote": "갑본 판독을 따라 安으로 소개한다"
+        }
+      ]
+    },
+    {
+      "id": "doc-survey-epsilon",
+      "title": "[가상 문헌] 가상비 DEMO-A 어구 구조 독립 분석 보고",
+      "docType": "SURVEY_REPORT",
+      "publisher": "가상 문자문화 연구소",
+      "publishedAt": "2018-09-01",
+      "reliabilityTier": 3,
+      "independenceGroup": "G2-epsilon",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi", "uljin-bongpyeong-stele"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 탁본 갑본과 무관하게 어구 구조를 독립적으로 분석하였다. 인접 문자 배열과 어구 구조로 보아 제2행 제3자는 安일 가능성이 가장 높다. 가상 신라계 비문 DEMO-B의 유사 어구와도 정합적이다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "SUPPORT",
+          "quote": "인접 문자 배열과 어구 구조로 보아 제2행 제3자는 安일 가능성이 가장 높다"
+        }
+      ]
+    },
+    {
+      "id": "doc-counter-mu",
+      "title": "[가상 문헌] 가상비 DEMO-A 판독 이설 검토",
+      "docType": "SURVEY_REPORT",
+      "publisher": "가상 서체 연구 모임",
+      "publishedAt": "2020-04-01",
+      "reliabilityTier": 3,
+      "independenceGroup": "G9-mu",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 기존 견해에 대한 이설을 정리한다. 갓머리 하단 마모부의 잔획이 客의 아래 상자 획과도 어긋나지 않으므로 安 판독은 여전히 재검토 여지가 있다. 다만 이 이설은 소수 견해에 머문다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "COUNTER",
+          "quote": "安 판독은 여전히 재검토 여지가 있다"
+        }
+      ]
+    },
+    {
+      "id": "doc-paper-zeta",
+      "title": "[가상 문헌] DEMO-A 제3행 마모부 획 방향 분석",
+      "docType": "PEER_REVIEWED",
+      "publisher": "가상 고대사 학술지",
+      "publishedAt": "2019-06-01",
+      "reliabilityTier": 2,
+      "independenceGroup": "G3-zeta",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 제3행 제5자의 잔획 방향을 계측하였다. 잔획의 방향이 戶의 우측 세로획과 일치하지 않으므로 戶 판독은 신중해야 한다. 현재 자료만으로는 특정 글자로 확정하기 어렵다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L3-C5",
+          "character": "戶",
+          "stance": "COUNTER",
+          "quote": "잔획의 방향이 戶의 우측 세로획과 일치하지 않으므로 戶 판독은 신중해야 한다"
+        }
+      ]
+    },
+    {
+      "id": "doc-paper-eta",
+      "title": "[가상 문헌] DEMO-A 제3행 제5자 시론",
+      "docType": "PEER_REVIEWED",
+      "publisher": "가상 금석학 논집",
+      "publishedAt": "2021-02-01",
+      "reliabilityTier": 2,
+      "independenceGroup": "G4-eta",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 마모부 상단의 짧은 사선은 戶의 첫 획일 수 있다. 그러나 이는 시론적 견해이며 추가 계측 자료가 필요하다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L3-C5",
+          "character": "戶",
+          "stance": "SUPPORT",
+          "quote": "마모부 상단의 짧은 사선은 戶의 첫 획일 수 있다"
+        }
+      ]
+    },
+    {
+      "id": "doc-paper-theta",
+      "title": "[가상 문헌] DEMO-A 제1행 제4자 守 판독설",
+      "docType": "PEER_REVIEWED",
+      "publisher": "가상 고대사 학술지",
+      "publishedAt": "2016-10-01",
+      "reliabilityTier": 2,
+      "independenceGroup": "G5-theta",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi", "jian-goguryeo-stele"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 제1행 제4자는 갓머리 아래 마디 흔적으로 보아 守로 판독된다. 가상 지안계 판독문의 守 용례와 형식이 유사하다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L1-C4",
+          "character": "守",
+          "stance": "SUPPORT",
+          "quote": "제1행 제4자는 갓머리 아래 마디 흔적으로 보아 守로 판독된다"
+        }
+      ]
+    },
+    {
+      "id": "doc-paper-iota",
+      "title": "[가상 문헌] DEMO-A 제1행 문맥 재구와 墓 판독설",
+      "docType": "PEER_REVIEWED",
+      "publisher": "가상 문헌사 연구",
+      "publishedAt": "2017-05-01",
+      "reliabilityTier": 2,
+      "independenceGroup": "G6-iota",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 어구 재구성을 근거로 한 대안 판독을 제시한다. 문맥상 제1행 제4자는 墓로 읽어야 어구가 성립한다. 守 판독설과는 양립하기 어렵다.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L1-C4",
+          "character": "墓",
+          "stance": "SUPPORT",
+          "quote": "문맥상 제1행 제4자는 墓로 읽어야 어구가 성립한다"
+        }
+      ]
+    },
+    {
+      "id": "doc-leak-kappa",
+      "title": "[가상 문헌] DEMO-A 평가용 정답표 (누출 검증용)",
+      "docType": "USER_NOTE",
+      "publisher": "석문 스튜디오 평가팀",
+      "publishedAt": "2026-01-01",
+      "reliabilityTier": 6,
+      "independenceGroup": "G7-leak",
+      "derivedFromDocumentId": null,
+      "benchmarkLeak": true,
+      "relatedTabIds": ["chungju-goguryeobi"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 이 문서는 벤치마크 누출 방지 로직을 시험하기 위한 정답표이며, 자동 분석 근거로 사용되어서는 안 된다. 정답표: 제2행 제3자 = 安. 정답표: 제3행 제5자 = 戶.",
+      "claims": [
+        {
+          "targetGlyphCellId": "demoA-L2-C3",
+          "character": "安",
+          "stance": "SUPPORT",
+          "quote": "정답표: 제2행 제3자 = 安"
+        },
+        {
+          "targetGlyphCellId": "demoA-L3-C5",
+          "character": "戶",
+          "stance": "SUPPORT",
+          "quote": "정답표: 제3행 제5자 = 戶"
+        }
+      ]
+    },
+    {
+      "id": "doc-note-lambda",
+      "title": "[가상 문헌] DEMO-C 가상 조각 접합 관찰 노트",
+      "docType": "INSTITUTION_NOTE",
+      "publisher": "가상 발굴 조사단",
+      "publishedAt": "2024-08-01",
+      "reliabilityTier": 6,
+      "independenceGroup": "G8-lambda",
+      "derivedFromDocumentId": null,
+      "relatedTabIds": ["wolseong-stele-fragments"],
+      "content": "본 문서는 석문 스튜디오 데모용으로 작성된 허구 자료다. 두 조각의 파단면 곡선이 일치하여 동일 비석에서 분리된 것으로 판단된다. 접합 시 글자 행이 자연스럽게 이어진다.",
+      "claims": []
+    }
+  ]
+}

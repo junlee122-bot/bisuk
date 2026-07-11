@@ -1,0 +1,78 @@
+{
+  "note": "Frontier Watch 시드. 창녕 항목은 실제 발견 보도의 메타데이터만 담는다(사진·원문 재배포 금지). DEMO-D 항목은 승격 흐름 검증용 허구 자료다.",
+  "watchItems": [
+    {
+      "id": "watch-changnyeong",
+      "provisionalName": "창녕 관룡산 통일신라 사찰 토지 공증비 (가칭)",
+      "discoveryDate": "2026-06-01",
+      "announcementDate": "2026-07-02",
+      "locationPrecision": "경상남도 창녕군 관룡산 일대 (산지)",
+      "reportingInstitution": "창녕군 제공 보도 기반",
+      "assetAvailability": ["보도 사진 (권리 미확인)", "1차 판독 요지"],
+      "rightsState": "NO_IMAGE_REDISTRIBUTION_UNTIL_CLEARED",
+      "status": "PRELIMINARY_READING",
+      "preliminaryClaims": [
+        "9세기 중엽 통일신라시대 자료로 1차 판독됨",
+        "개심방 관련 토지 소유 공증 내용으로 해석됨",
+        "승관 이름과 답반 또는 번답 관련 어휘가 보고됨"
+      ],
+      "unknownQuestions": [
+        "정밀 판독 결과는 1차 판독과 얼마나 달라지는가?",
+        "비석의 원위치와 사찰 경역의 관계는?",
+        "공식 조사보고서 발간 시점은?"
+      ],
+      "relatedStelae": ["changnyeong-gwanryongsan-stele"],
+      "nextExpectedEvent": "정밀 판독 및 학술 검토 결과 공개",
+      "lastCheckedAt": "2026-07-10T09:00:00+09:00",
+      "promotedTabId": "changnyeong-gwanryongsan-stele",
+      "frontierSignals": {
+        "unresolvedCharacterRatio": 0.7,
+        "historicalImportance": 0.6,
+        "discoveryRecency": 1.0,
+        "missingContextScore": 0.8,
+        "dataScarcity": 0.95,
+        "disagreementScore": 0.3,
+        "crossSteleConnectivity": 0.3
+      },
+      "sourceRecords": [
+        {
+          "id": "src-watch-changnyeong-news",
+          "type": "DISCOVERY_REPORT",
+          "publisher": "창녕군 제공 보도 기반",
+          "url": "https://www.newsis.com/view/NISX20260702_0003693724",
+          "acquisition": "METADATA_ONLY",
+          "rightsState": "NO_IMAGE_REDISTRIBUTION_UNTIL_CLEARED",
+          "reliabilityTier": 5,
+          "independenceGroup": "changnyeong-press"
+        }
+      ]
+    },
+    {
+      "id": "watch-demo-d",
+      "provisionalName": "[가상] DEMO-D 문헌상 신규 발견 가상 비편",
+      "discoveryDate": "2026-05-20",
+      "announcementDate": "2026-06-15",
+      "locationPrecision": "가상 지역 (데모)",
+      "reportingInstitution": "가상 지역 문화원 (허구 기관)",
+      "assetAvailability": ["가상 발견 노트"],
+      "rightsState": "VERIFY_REQUIRED",
+      "status": "NEWS_MENTION",
+      "preliminaryClaims": ["가상 비편에 王 자로 추정되는 획이 있다는 1차 보고 (허구)"],
+      "unknownQuestions": ["가상 시나리오: 기관 확인 절차는 어떻게 진행되는가?"],
+      "relatedStelae": [],
+      "nextExpectedEvent": "가상 기관 확인",
+      "lastCheckedAt": "2026-07-01T09:00:00+09:00",
+      "promotedTabId": null,
+      "frontierSignals": {
+        "unresolvedCharacterRatio": 0.9,
+        "historicalImportance": 0.3,
+        "discoveryRecency": 1.0,
+        "missingContextScore": 0.9,
+        "dataScarcity": 1.0,
+        "disagreementScore": 0.1,
+        "crossSteleConnectivity": 0.1
+      },
+      "sourceRecords": []
+    }
+  ]
+}
