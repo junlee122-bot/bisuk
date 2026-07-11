@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --stone-bg: #16161a;
+  --panel-bg: #1f1f26;
+  --panel-border: #33333d;
+  --ink: #e8e6e0;
+  --accent: #d3a95f;
+}
+
+html,
+body {
+  background: var(--stone-bg);
+  color: var(--ink);
+  font-family:
+    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui,
+    -apple-system, sans-serif;
+}
+
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.2rem;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.badge-demo {
+  background: #3d2f14;
+  color: #f0c980;
+  border-color: #6b5423;
+}
+.badge-rights {
+  background: #401c1c;
+  color: #f2a0a0;
+  border-color: #703030;
+}
+.badge-frontier {
+  background: #1c3340;
+  color: #8fd0f2;
+  border-color: #2f5b70;
+}
+.badge-ok {
+  background: #1c4028;
+  color: #9df2b7;
+  border-color: #2f7045;
+}
+.badge-neutral {
+  background: #2c2c34;
+  color: #b9b9c4;
+  border-color: #44444f;
+}
+.badge-warn {
+  background: #403a1c;
+  color: #f2e39d;
+  border-color: #6f6530;
+}
+
+button {
+  cursor: pointer;
+}
+
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3a44;
+  border-radius: 4px;
+}
