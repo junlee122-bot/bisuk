@@ -200,7 +200,7 @@ export function Viewer3D({
     );
   }
 
-  const initialCamera = uiState.camera?.position ?? [1.2, 0.3, 2.2];
+  const initialCamera = uiState.camera?.position ?? [0.9, 0.15, 3.1];
 
   return (
     <div className="relative h-full min-h-[320px]" data-testid="viewer-3d">
