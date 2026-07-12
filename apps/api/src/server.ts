@@ -15,6 +15,7 @@ import {
   TabOrderBody,
   UiStateBody,
   type DossierResponse,
+  type GlyphCell as GlyphCellEntity,
   type GlyphMatrixResponse,
   type ResearchSet,
   type SteleAsset,
@@ -59,8 +60,31 @@ import {
   steleTabs,
 } from "./repo";
 
-const ALLOWED_UPLOAD_EXT = new Set(["ply", "stl", "asc", "xyz", "obj", "txt"]);
+// P0 검사기가 실제로 해석 가능한 형식만 허용한다 (OBJ 변환은 P1)
+const ALLOWED_UPLOAD_EXT = new Set(["ply", "stl", "asc", "xyz"]);
 const UNRESOLVED = new Set(["UNKNOWN", "CONFLICTING", "PARTIALLY_OBSERVED", "ILLEGIBLE"]);
+
+let idCounter = 0;
+/** 밀리초 충돌로 인한 INSERT OR REPLACE 덮어쓰기를 막는 고유 ID */
+function newId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${idCounter++}`;
+}
+
+/**
+ * 숨김 벤치마크 셀은 마모(eroded) 획 좌표를 API 밖으로 내보내지 않는다.
+ * 전체 자형이 노출되면 클라이언트가 자형 참조표 대조만으로 정답을 복원할 수 있다.
+ */
+function sanitizeCell(stored: { entity: GlyphCellEntity; extra: { hiddenBenchmark?: boolean } }): GlyphCellEntity {
+  if (!stored.extra.hiddenBenchmark || !stored.entity.strokes) return stored.entity;
+  const eroded = new Set(stored.entity.strokes.erodedStrokeIndexes);
+  return {
+    ...stored.entity,
+    strokes: {
+      polylines: stored.entity.strokes.polylines.filter((_, i) => !eroded.has(i)),
+      erodedStrokeIndexes: [],
+    },
+  };
+}
 
 interface Ctx {
   db: Db;
@@ -178,7 +202,7 @@ export function buildServer(): FastifyInstance {
   app.post("/api/research-sets", async (req, reply) => {
     const body = CreateResearchSetBody.parse(req.body);
     const now = new Date().toISOString();
-    const id = `rs-${Date.now()}`;
+    const id = newId("rs");
     const set: ResearchSet = {
       id,
       name: body.name,
@@ -235,16 +259,17 @@ export function buildServer(): FastifyInstance {
     const set = researchSets.get(ctx.db, id);
     if (!set) return notFound(reply, "연구 세트");
     const body = TabOrderBody.parse(req.body);
+    // 부분 갱신 — 제공된 필드만 반영 (stale 클라이언트가 다른 필드를 되돌리는 경합 방지)
     const updated: ResearchSet = {
       ...set,
-      activeTabOrder: body.activeTabOrder,
+      activeTabOrder: body.activeTabOrder ?? set.activeTabOrder,
       activeTabId: body.activeTabId !== undefined ? body.activeTabId : set.activeTabId,
       pinnedTabIds: body.pinnedTabIds ?? set.pinnedTabIds,
       updatedAt: new Date().toISOString(),
     };
     researchSets.put(ctx.db, updated);
     auditEvents.record(ctx.db, "REORDER_TABS", "ResearchSet", id, {
-      order: body.activeTabOrder,
+      order: updated.activeTabOrder,
       activeTabId: updated.activeTabId,
     });
     return updated;
@@ -256,7 +281,7 @@ export function buildServer(): FastifyInstance {
     if (!set) return notFound(reply, "연구 세트");
     const body = CreateTabBody.parse(req.body);
     const now = new Date().toISOString();
-    const tabId = `tab-${Date.now()}`;
+    const tabId = newId("tab");
     const tab: SteleTab = {
       id: tabId,
       researchSetId: id,
@@ -305,7 +330,7 @@ export function buildServer(): FastifyInstance {
       badges: tabBadges(ctx.db, tab),
       sourceRecords: sourceRecords.listByTab(ctx.db, id),
       assets: steleAssets.listByTab(ctx.db, id),
-      glyphCells: glyphCells.listByTab(ctx.db, id).map((c) => c.entity),
+      glyphCells: glyphCells.listByTab(ctx.db, id).map(sanitizeCell),
     };
   });
 
@@ -328,6 +353,18 @@ export function buildServer(): FastifyInstance {
     const tab = steleTabs.get(ctx.db, id);
     if (!tab) return notFound(reply, "탭");
     steleTabs.put(ctx.db, { ...tab, archived: true, updatedAt: new Date().toISOString() });
+    // 세트 상태에서 고아 참조 제거 (activeTabId·순서·고정)
+    const set = researchSets.get(ctx.db, tab.researchSetId);
+    if (set) {
+      const remaining = set.activeTabOrder.filter((t) => t !== id);
+      researchSets.put(ctx.db, {
+        ...set,
+        activeTabOrder: remaining,
+        pinnedTabIds: set.pinnedTabIds.filter((t) => t !== id),
+        activeTabId: set.activeTabId === id ? (remaining[0] ?? null) : set.activeTabId,
+        updatedAt: new Date().toISOString(),
+      });
+    }
     auditEvents.record(ctx.db, "ARCHIVE_TAB", "SteleTab", id, {});
     return { ok: true };
   });
@@ -349,7 +386,7 @@ export function buildServer(): FastifyInstance {
     const { id } = req.params as { id: string };
     const tab = steleTabs.get(ctx.db, id);
     if (!tab) return notFound(reply, "탭");
-    return glyphCells.listByTab(ctx.db, id).map((c) => c.entity);
+    return glyphCells.listByTab(ctx.db, id).map(sanitizeCell);
   });
 
   // ── 자산 업로드 (importer) ──
@@ -369,11 +406,17 @@ export function buildServer(): FastifyInstance {
     if (!ALLOWED_UPLOAD_EXT.has(ext)) {
       return reply.status(400).send({
         error: "UNSUPPORTED_FORMAT",
-        message: `지원하지 않는 확장자(${ext}) — PLY/STL/ASC/XYZ/OBJ 만 등록할 수 있습니다`,
+        message: `지원하지 않는 확장자(${ext}) — PLY/STL/ASC/XYZ 만 등록할 수 있습니다`,
+      });
+    }
+    if (query.sourceRecordId && !sourceRecords.get(ctx.db, query.sourceRecordId)) {
+      return reply.status(400).send({
+        error: "UNKNOWN_SOURCE_RECORD",
+        message: `출처 레코드(${query.sourceRecordId})가 존재하지 않습니다`,
       });
     }
     const checksum = createHash("sha256").update(body).digest("hex");
-    const assetId = `asset-upload-${Date.now()}`;
+    const assetId = newId("asset-upload");
     const dir = path.join(dataDir(), "originals", assetId);
     mkdirSync(dir, { recursive: true });
     const storageKey = path.join("originals", assetId, path.basename(query.filename));
@@ -382,7 +425,7 @@ export function buildServer(): FastifyInstance {
     const asset: SteleAsset = {
       id: assetId,
       steleTabId: id,
-      assetType: ext === "asc" || ext === "xyz" ? "POINT_CLOUD" : "MESH",
+      assetType: ext === "ply" || ext === "stl" ? "MESH" : "POINT_CLOUD",
       provenance: "REAL_USER_UPLOAD",
       demoLabel: null,
       originalFilename: query.filename,
@@ -464,7 +507,17 @@ export function buildServer(): FastifyInstance {
     const { id } = req.params as { id: string };
     const stored = glyphCells.get(ctx.db, id);
     if (!stored) return notFound(reply, "문자 셀");
-    return runAndPersistAnalysis(ctx.db, stored, ctx.priors);
+    // 관측 확정(OBSERVED) 셀은 자동 분석으로 상태를 덮어쓰지 않는다
+    if (stored.entity.readingStatus === "OBSERVED" && stored.entity.publishedReading) {
+      return reply.status(409).send({
+        error: "OBSERVED_CELL",
+        message:
+          "관측 확정 셀은 자동 분석 대상이 아닙니다. 손상·미상 셀을 선택하세요.",
+      });
+    }
+    const result = runAndPersistAnalysis(ctx.db, stored, ctx.priors);
+    const updated = glyphCells.get(ctx.db, id);
+    return { ...result, glyphCell: updated ? sanitizeCell(updated) : result.glyphCell };
   });
 
   app.get("/api/glyphs/:id/dossier", async (req, reply) => {
@@ -495,7 +548,7 @@ export function buildServer(): FastifyInstance {
       });
     const uniqueDocs = [...new Map(genealogyDocs.map((d) => [d.id, d])).values()];
     const response: DossierResponse = {
-      glyphCell: stored.entity,
+      glyphCell: sanitizeCell(stored),
       tab,
       conclusion,
       alternates: allHyp.slice(1),
@@ -541,10 +594,10 @@ export function buildServer(): FastifyInstance {
             tab,
             cells: [
               {
-                glyphCell: stored.entity,
+                glyphCell: sanitizeCell(stored),
                 match: null,
                 publishedReading: stored.entity.publishedReading,
-                dataProvenance: "VIRTUAL_DEMO",
+                dataProvenance: stored.extra.seedKey ? "VIRTUAL_DEMO" : "REAL_USER_UPLOAD",
               },
             ],
           });
@@ -563,14 +616,14 @@ export function buildServer(): FastifyInstance {
           if (!best || score > best.score) best = { cell: candidate, score };
         }
         if (!best || best.score < 0.2) {
-          columns.push({ tab, cells: [{ glyphCell: null, match: null, publishedReading: null, dataProvenance: "VIRTUAL_DEMO" }] });
+          columns.push({ tab, cells: [{ glyphCell: null, match: null, publishedReading: null, dataProvenance: "NONE" }] });
           continue;
         }
         columns.push({
           tab,
           cells: [
             {
-              glyphCell: best.cell.entity,
+              glyphCell: sanitizeCell(best.cell),
               match: {
                 id: `mx-${cellId}-${best.cell.entity.id}`,
                 sourceGlyphCellId: cellId,
@@ -589,14 +642,14 @@ export function buildServer(): FastifyInstance {
                 createdAt: new Date().toISOString(),
               },
               publishedReading: best.cell.entity.publishedReading,
-              dataProvenance: "VIRTUAL_DEMO",
+              dataProvenance: best.cell.extra.seedKey ? "VIRTUAL_DEMO" : "REAL_USER_UPLOAD",
             },
           ],
         });
       }
-      rows.push({ sourceGlyphCell: stored.entity, sourceTab, columns });
+      rows.push({ sourceGlyphCell: sanitizeCell(stored), sourceTab, columns });
     }
-    const comparisonId = `cmp-${Date.now()}`;
+    const comparisonId = newId("cmp");
     const response: GlyphMatrixResponse = {
       id: comparisonId,
       rows,
@@ -627,6 +680,7 @@ export function buildServer(): FastifyInstance {
     const body = z
       .object({ tabId: z.string(), offset: z.number().min(-1).max(1) })
       .parse(req.body);
+    if (!steleTabs.get(ctx.db, body.tabId)) return notFound(reply, "탭");
     const assets = steleAssets
       .listByTab(ctx.db, body.tabId)
       .filter((a) => a.format === "PROCEDURAL_FRAGMENT");
@@ -680,11 +734,67 @@ export function buildServer(): FastifyInstance {
     return out;
   });
 
+  app.post("/api/documents", async (req, reply) => {
+    const body = z
+      .object({
+        title: z.string().min(1),
+        content: z.string().min(10),
+        docType: z
+          .enum([
+            "PRIMARY_SOURCE",
+            "PEER_REVIEWED",
+            "SURVEY_REPORT",
+            "CONFERENCE",
+            "NEWS",
+            "INSTITUTION_NOTE",
+            "USER_NOTE",
+          ])
+          .default("USER_NOTE"),
+        publisher: z.string().default("사용자 등록"),
+        publishedAt: z.string().default(""),
+        isFictional: z.boolean().default(false),
+        reliabilityTier: z.coerce.number().int().min(1).max(7).default(7),
+        relatedTabIds: z.array(z.string()).default([]),
+      })
+      .parse(req.body);
+    const now = new Date().toISOString();
+    const id = newId("doc-user");
+    documents.put(ctx.db, {
+      entity: {
+        id,
+        title: body.title,
+        docType: body.docType,
+        publisher: body.publisher,
+        publishedAt: body.publishedAt || now.slice(0, 10),
+        language: "ko",
+        isFictional: body.isFictional,
+        reliabilityTier: body.reliabilityTier,
+        independenceGroup: id,
+        derivedFromDocumentId: null,
+        relatedTabIds: body.relatedTabIds,
+        content: body.content,
+        createdAt: now,
+      },
+      extra: { benchmarkLeak: false, claims: [] },
+    });
+    ctx.bm25 = buildSearchIndex(ctx.db);
+    auditEvents.record(ctx.db, "UPLOAD_DOCUMENT", "CorpusDocument", id, {
+      title: body.title,
+      docType: body.docType,
+      bytes: Buffer.byteLength(body.content),
+    });
+    return reply.status(201).send({ id });
+  });
+
   app.get("/api/documents/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const doc = documents.get(ctx.db, id);
     if (!doc) return notFound(reply, "문헌");
-    return { ...doc.entity, claims: doc.extra.claims };
+    return {
+      ...doc.entity,
+      claims: doc.extra.claims,
+      benchmarkLeak: Boolean(doc.extra.benchmarkLeak),
+    };
   });
 
   // ── Frontier Watch ──
@@ -722,7 +832,7 @@ export function buildServer(): FastifyInstance {
     const set = researchSets.get(ctx.db, body.researchSetId);
     if (!set) return notFound(reply, "연구 세트");
     const now = new Date().toISOString();
-    const tabId = `tab-frontier-${Date.now()}`;
+    const tabId = newId("tab-frontier");
     const tab: SteleTab = {
       id: tabId,
       researchSetId: set.id,
@@ -789,9 +899,13 @@ export function buildServer(): FastifyInstance {
         details: gate.blockedAssets,
       });
     }
-    const cells = tabs.flatMap((t) =>
-      glyphCells.listByTab(ctx.db, t.id).map((c) => c.entity)
-    );
+    const cells = tabs.flatMap((t) => glyphCells.listByTab(ctx.db, t.id).map(sanitizeCell));
+    // 가상 데모 셀만 가진 탭 — 시드 유래(seedKey) 셀 여부로 판별
+    const virtualTabIds = tabs
+      .filter((t) =>
+        glyphCells.listByTab(ctx.db, t.id).every((c) => Boolean(c.extra.seedKey))
+      )
+      .map((t) => t.id);
     const hyps = cells.flatMap((c) => {
       const stored = glyphCells.get(ctx.db, c.id)!;
       const runId = stored.extra.latestRunId;
@@ -811,6 +925,7 @@ export function buildServer(): FastifyInstance {
       corpusVersion: CORPUS_VERSION,
       generatedAt: new Date().toISOString(),
       audience: query.audience,
+      virtualTabIds,
     };
     let content: string;
     let contentType: string;

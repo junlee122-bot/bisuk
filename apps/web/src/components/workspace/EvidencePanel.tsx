@@ -9,8 +9,81 @@ import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { useCompareTray } from "@/lib/store";
 import { DossierModal } from "./DossierModal";
 
-function LiteratureSearch({ tabId }: { tabId: string }) {
-  const [q, setQ] = useState("");
+function DocumentUpload({ tabId }: { tabId: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [done, setDone] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.uploadDocument({ title, content, docType: "USER_NOTE", relatedTabIds: [tabId] }),
+    onSuccess: () => {
+      setDone(`'${title}' 색인 완료 — 검색에서 즉시 조회 가능`);
+      setTitle("");
+      setContent("");
+      // 같은 검색어의 캐시 결과를 무효화해 새 문헌이 바로 보이게 한다
+      void qc.invalidateQueries({ queryKey: ["literature"] });
+    },
+  });
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="badge badge-neutral mt-1"
+        data-testid="doc-upload-toggle"
+      >
+        + 문헌 추가 (TXT 붙여넣기)
+      </button>
+    );
+  }
+  return (
+    <form
+      className="mt-2 space-y-1"
+      data-testid="doc-upload-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (title.trim() && content.trim().length >= 10) mutation.mutate();
+      }}
+    >
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="문헌 제목"
+        className="w-full rounded border border-[var(--panel-border)] bg-transparent px-2 py-1 text-xs"
+        aria-label="문헌 제목"
+        data-testid="doc-title"
+      />
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="본문 텍스트 (10자 이상) — 색인 후 BM25 검색과 인용 검증에 사용"
+        rows={3}
+        className="w-full rounded border border-[var(--panel-border)] bg-transparent px-2 py-1 text-xs"
+        aria-label="문헌 본문"
+        data-testid="doc-content"
+      />
+      <div className="flex gap-1">
+        <button type="submit" className="badge badge-ok" disabled={mutation.isPending} data-testid="doc-submit">
+          색인
+        </button>
+        <button type="button" className="badge badge-neutral" onClick={() => setOpen(false)}>
+          닫기
+        </button>
+      </div>
+      {done && <p className="text-[11px] text-emerald-300" data-testid="doc-done">{done}</p>}
+    </form>
+  );
+}
+
+function LiteratureSearch({
+  tabId,
+  initialQuery,
+}: {
+  tabId: string;
+  initialQuery: string;
+}) {
+  const [q, setQ] = useState(initialQuery);
   const [stance, setStance] = useState<"ALL" | "SUPPORT" | "COUNTER">("ALL");
   const [submitted, setSubmitted] = useState("");
   const { data: hits, isFetching } = useQuery({
@@ -26,6 +99,8 @@ function LiteratureSearch({ tabId }: { tabId: string }) {
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitted(q);
+          // 새로고침 복원 대상 — 탭 UI 상태에 검색어 저장 (실패해도 검색은 진행)
+          void api.saveUiState(tabId, { literatureQuery: q }).catch(() => undefined);
         }}
       >
         <input
@@ -78,7 +153,7 @@ function LiteratureSearch({ tabId }: { tabId: string }) {
           <li className="text-xs text-neutral-500">결과 없음</li>
         )}
       </ul>
-      <p className="sr-only">{tabId}</p>
+      <DocumentUpload tabId={tabId} />
     </section>
   );
 }
@@ -253,7 +328,11 @@ export function EvidencePanel({
           )}
         </>
       )}
-      <LiteratureSearch tabId={detail.tab.id} />
+      <LiteratureSearch
+        key={detail.tab.id}
+        tabId={detail.tab.id}
+        initialQuery={detail.tab.uiState.literatureQuery}
+      />
       {dossierOpen && cell && (
         <DossierModal glyphCellId={cell.id} onClose={() => setDossierOpen(false)} />
       )}

@@ -186,8 +186,10 @@ export function analyzeGlyphCell(input: PipelineInput): PipelineResult {
       if (sim > 0.3) visualScores.set(char, Math.round(sim * 1000) / 1000);
     }
   }
+  // CJK localeCompare는 ICU 구성에 따라 달라지므로 코드포인트 비교로 결정성 확보
+  const cmpChar = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   const visualRanked = [...visualScores.entries()].sort(
-    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
+    (a, b) => b[1] - a[1] || cmpChar(a[0], b[0])
   );
   const candidateChars = new Set(visualRanked.slice(0, 4).map(([c]) => c));
 
@@ -276,13 +278,16 @@ export function analyzeGlyphCell(input: PipelineInput): PipelineResult {
     if (!ev.citationVerified) continue;
     const target = ev.kind === "SUPPORT" ? supportDocsByChar : counterDocsByChar;
     const list = target.get(ev.candidateCharacter) ?? [];
-    list.push({
-      id: ev.documentId,
-      title: ev.documentTitle,
-      independenceGroup: ev.independenceGroup,
-      derivedFromDocumentId: ev.derivedFromDocumentId,
-      reliabilityTier: ev.reliabilityTier,
-    });
+    // 같은 문서의 복수 인용은 근거 문서 1건으로만 계산한다
+    if (!list.some((d) => d.id === ev.documentId)) {
+      list.push({
+        id: ev.documentId,
+        title: ev.documentTitle,
+        independenceGroup: ev.independenceGroup,
+        derivedFromDocumentId: ev.derivedFromDocumentId,
+        reliabilityTier: ev.reliabilityTier,
+      });
+    }
     target.set(ev.candidateCharacter, list);
   }
 
@@ -328,7 +333,7 @@ export function analyzeGlyphCell(input: PipelineInput): PipelineResult {
   candidates.sort(
     (a, b) =>
       b.calibratedConfidence - a.calibratedConfidence ||
-      a.candidateCharacter.localeCompare(b.candidateCharacter)
+      cmpChar(a.candidateCharacter, b.candidateCharacter)
   );
 
   const top = candidates[0] ?? null;
@@ -362,17 +367,23 @@ export function analyzeGlyphCell(input: PipelineInput): PipelineResult {
     topEvidence.filter((e) => e.kind === "SUPPORT").length > 0 &&
     topEvidence.filter((e) => e.kind === "SUPPORT").every((e) => e.citationVerified);
 
-  // 경쟁 후보가 독립 검증 근거를 갖는가 (상충 판단)
+  // 경쟁 후보가 독립 검증 근거를 갖는가 (상충 판단) — top 후보의 근거 유무와 무관
   const charsWithVerifiedSupport = [...supportDocsByChar.entries()]
     .filter(([, docs]) => docs.length > 0)
     .map(([char]) => char);
-  const hasCompeting =
-    charsWithVerifiedSupport.filter((c) => c !== top.candidateCharacter).length > 0 &&
-    charsWithVerifiedSupport.includes(top.candidateCharacter);
+  const hasCompeting = charsWithVerifiedSupport.some(
+    (c) => c !== top.candidateCharacter
+  );
 
-  // 강한 시각 모순: 관측 획과 후보 자형의 정면 충돌 (시각 점수 존재 & 극히 낮음)
+  // 강한 시각 모순: 관측 획이 충분한데 후보 자형과의 실제 유사도가 극히 낮고 반증도 존재
+  const topPrior = priors[top.candidateCharacter];
+  const topRawSimilarity =
+    observed.length > 0 && topPrior
+      ? strokeSetSimilarity(observed, topPrior.polylines as Polyline[])
+      : 0;
   const strongVisualContradiction =
-    observed.length >= 3 && (visualScores.get(top.candidateCharacter) ?? 0) < 0.15 &&
+    observed.length >= 3 &&
+    topRawSimilarity < 0.15 &&
     top.origin === "LITERATURE" &&
     (counterDocsByChar.get(top.candidateCharacter)?.length ?? 0) > 0;
 

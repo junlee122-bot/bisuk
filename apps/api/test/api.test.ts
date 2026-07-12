@@ -77,6 +77,25 @@ describe("연구 세트 / 탭", () => {
     expect(detail.tab.uiState.lastSavedAt).not.toBeNull();
   });
 
+  it("숨김 벤치마크 셀은 마모 획 좌표를 노출하지 않는다 (정답 복원 차단)", async () => {
+    const detail = (
+      await app.inject({ method: "GET", url: `/api/stele-tabs/chungju-goguryeobi` })
+    ).json();
+    const hidden = detail.glyphCells.find((g: { id: string }) => g.id === "demoA-L2-C3");
+    // 安 전체 자형은 7획 — 마모 2획이 제거된 관측 5획만 노출돼야 한다
+    expect(hidden.strokes.polylines.length).toBe(5);
+    expect(hidden.strokes.erodedStrokeIndexes).toEqual([]);
+    const observedCell = detail.glyphCells.find(
+      (g: { id: string }) => g.id === "demoA-L1-C1"
+    );
+    expect(observedCell.strokes.polylines.length).toBeGreaterThan(0);
+  });
+
+  it("관측 확정(OBSERVED) 셀은 자동 분석이 거부된다", async () => {
+    const res = await app.inject({ method: "POST", url: `/api/glyphs/demoA-L1-C1/analyze` });
+    expect(res.statusCode).toBe(409);
+  });
+
   it("충주 탭은 공식 Source Card + 가상 데모 자산 + 글리프 셀을 갖는다", async () => {
     const detail = (
       await app.inject({ method: "GET", url: `/api/stele-tabs/chungju-goguryeobi` })
@@ -325,6 +344,36 @@ describe("내보내기 형식", () => {
     });
     expect(report.body).toContain("연구 실행 보고서");
     expect(report.body).toContain("데모용 창작물");
+  });
+});
+
+describe("문헌 업로드·색인", () => {
+  it("업로드한 문헌이 즉시 검색 색인에 반영된다", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/documents",
+      payload: {
+        title: "사용자 등록 연구 노트 — 봉평비 자형 관찰",
+        content:
+          "봉평비의 특정 자형에 대한 개인 관찰 노트다. 갈문왕 어휘의 배열이 특징적이다.",
+        docType: "USER_NOTE",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const hits = (
+      await app.inject({
+        method: "GET",
+        url: `/api/literature/search?q=${encodeURIComponent("갈문왕")}`,
+      })
+    ).json();
+    expect(hits.length).toBeGreaterThanOrEqual(1);
+    expect(hits[0].document.title).toContain("봉평비 자형 관찰");
+    expect(hits[0].document.reliabilityTier).toBe(7);
+    // 감사 로그 기록
+    const audit = (await app.inject({ method: "GET", url: "/api/audit" })).json();
+    expect(
+      audit.some((a: { action: string }) => a.action === "UPLOAD_DOCUMENT")
+    ).toBe(true);
   });
 });
 

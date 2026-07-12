@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { DemoBadge, ReadingBadge, RightsBadge } from "@/components/badges";
@@ -17,6 +18,14 @@ export function DossierModal({
     queryFn: () => api.getDossier(glyphCellId),
   });
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3"
@@ -32,7 +41,7 @@ export function DossierModal({
       >
         <div className="flex items-start justify-between gap-2">
           <h2 className="text-lg font-semibold">Evidence Dossier — {glyphCellId}</h2>
-          <button onClick={onClose} className="badge badge-neutral" data-testid="dossier-close">
+          <button autoFocus onClick={onClose} className="badge badge-neutral" data-testid="dossier-close">
             닫기 ✕
           </button>
         </div>

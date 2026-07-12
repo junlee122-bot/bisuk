@@ -92,7 +92,7 @@ export function TabStrip({
                 </span>
               )}
             </button>
-            <span className="hidden items-center gap-0.5 text-xs text-neutral-500 group-hover:flex">
+            <span className="hidden items-center gap-0.5 text-xs text-neutral-500 group-hover:flex group-focus-within:flex">
               <button
                 onClick={() => move(id, -1)}
                 aria-label={`${tab.title} 왼쪽으로 이동`}

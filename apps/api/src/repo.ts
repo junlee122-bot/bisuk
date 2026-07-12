@@ -81,6 +81,7 @@ export const steleTabs = {
 
 // ── Source records ──
 export const sourceRecords = {
+  get: (db: Db, id: string) => get<SourceRecord>(db, "source_records", id),
   listByTab: (db: Db, tabId: string) =>
     all<SourceRecord>(db, "source_records", "WHERE stele_tab_id = ?", [tabId]),
   put: (db: Db, entity: SourceRecord) =>

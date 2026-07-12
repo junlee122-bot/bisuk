@@ -105,7 +105,11 @@ export const api = {
   getSet: (id: string) => request<SetOverview>(`/api/research-sets/${id}`),
   saveTabOrder: (
     id: string,
-    body: { activeTabOrder: string[]; activeTabId?: string | null; pinnedTabIds?: string[] }
+    body: {
+      activeTabOrder?: string[];
+      activeTabId?: string | null;
+      pinnedTabIds?: string[];
+    }
   ) =>
     request<ResearchSet>(`/api/research-sets/${id}/tab-order`, {
       method: "PATCH",
@@ -160,6 +164,16 @@ export const api = {
       { method: "POST", body: JSON.stringify({ researchSetId }) }
     ),
   listAudit: () => request<AuditEvent[]>("/api/audit?limit=200"),
+  uploadDocument: (body: {
+    title: string;
+    content: string;
+    docType?: string;
+    relatedTabIds?: string[];
+  }) =>
+    request<{ id: string }>("/api/documents", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   uploadAsset: async (
     tabId: string,
     file: File,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 
 const FORMATS = [
@@ -15,6 +15,14 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
   const [blocked, setBlocked] = useState<Array<{ filename: string | null; rightsState: string }> | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const download = async (format: string) => {
     setBlocked(null);
     setMessage(null);
@@ -27,6 +35,10 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
       };
       setBlocked(body.details);
       setMessage(body.message);
+      return;
+    }
+    if (!res.ok) {
+      setMessage(`내보내기 실패 (${res.status}) — 서버 응답을 확인하세요`);
       return;
     }
     const blob = await res.blob();
@@ -53,7 +65,7 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">내보내기</h2>
-          <button onClick={onClose} className="badge badge-neutral">
+          <button autoFocus onClick={onClose} className="badge badge-neutral">
             닫기 ✕
           </button>
         </div>

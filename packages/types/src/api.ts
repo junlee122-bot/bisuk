@@ -33,8 +33,9 @@ export const CreateTabBody = z.object({
 });
 export type CreateTabBody = z.infer<typeof CreateTabBody>;
 
+/** 부분 갱신 — 제공된 필드만 반영해 동시 저장 경합(순서↔활성탭↔고정)을 없앤다 */
 export const TabOrderBody = z.object({
-  activeTabOrder: z.array(z.string()),
+  activeTabOrder: z.array(z.string()).optional(),
   activeTabId: z.string().nullable().optional(),
   pinnedTabIds: z.array(z.string()).optional(),
 });

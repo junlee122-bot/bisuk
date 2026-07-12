@@ -13,12 +13,12 @@ export function GlyphTree({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const lines = new Map<string, typeof detail.glyphCells>();
+  const lines = new Map<string, { faceId: string; lineIndex: number; cells: typeof detail.glyphCells }>();
   for (const c of detail.glyphCells) {
-    const key = `${c.faceId} · ${c.lineIndex}행`;
-    const list = lines.get(key) ?? [];
-    list.push(c);
-    lines.set(key, list);
+    const key = `${c.faceId}#${c.lineIndex}`;
+    const group = lines.get(key) ?? { faceId: c.faceId, lineIndex: c.lineIndex, cells: [] };
+    group.cells.push(c);
+    lines.set(key, group);
   }
 
   return (
@@ -44,11 +44,13 @@ export function GlyphTree({
           )}
         </ul>
       </section>
-      {[...lines.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([label, cells]) => (
-          <section key={label} className="panel p-2">
-            <h3 className="mb-1 text-xs font-semibold text-neutral-400">{label}</h3>
+      {[...lines.values()]
+        .sort((a, b) => a.faceId.localeCompare(b.faceId) || a.lineIndex - b.lineIndex)
+        .map(({ faceId, lineIndex, cells }) => (
+          <section key={`${faceId}#${lineIndex}`} className="panel p-2">
+            <h3 className="mb-1 text-xs font-semibold text-neutral-400">
+              {faceId} · {lineIndex}행
+            </h3>
             <div className="flex flex-wrap gap-1.5">
               {cells
                 .sort((a, b) => a.sequenceIndex - b.sequenceIndex)

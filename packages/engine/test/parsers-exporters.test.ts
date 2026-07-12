@@ -166,6 +166,20 @@ describe("내보내기 + 권리 게이트", () => {
     expect(checkExportRights(input.assets, "INTERNAL").allowed).toBe(true);
   });
 
+  it("허용 목록 방식: VIEW_ONLY·RESEARCH_ONLY·KOGL_TYPE_4 확정도 PUBLIC 재배포 차단", () => {
+    const input = makeExportInput();
+    for (const state of [
+      "VIEW_ONLY",
+      "RESEARCH_ONLY",
+      "METADATA_ONLY",
+      "DERIVATIVES_PROHIBITED",
+      "KOGL_TYPE_4_OR_ITEM_SPECIFIC",
+    ] as const) {
+      input.assets[0]!.rightsState = state;
+      expect(checkExportRights(input.assets, "PUBLIC").allowed, state).toBe(false);
+    }
+  });
+
   it("JSON에는 manifest(모델·코퍼스·권리)가 포함된다", () => {
     const out = JSON.parse(exportJson(makeExportInput()));
     expect(out.manifest.modelVersion).toBe("model-v");

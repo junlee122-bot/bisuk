@@ -37,6 +37,7 @@ export function evaluateJoin(
   offset: number,
   samples = 50
 ): JoinResult {
+  samples = Math.max(2, Math.floor(samples));
   let sum = 0;
   let interference = 0;
   for (let i = 0; i < samples; i++) {

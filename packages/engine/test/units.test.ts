@@ -102,9 +102,14 @@ describe("citation verifier", () => {
     expect(check.context).toContain("【정확한 인용 문장이다】");
   });
   it("본문에 없는 인용은 거부된다", () => {
-    const check = verifyCitation("본문 내용", "존재하지 않는 인용");
+    const check = verifyCitation("본문 내용에 존재하지 않는 다른 문장", "여기에 없는 인용 문장이다");
     expect(check.verified).toBe(false);
     expect(check.offset).toBeNull();
+  });
+  it("한두 글자짜리 인용은 본문에 있어도 검증 불충분으로 거부된다", () => {
+    const check = verifyCitation("此字非安也 — 安이 아니라는 반박문", "安");
+    expect(check.verified).toBe(false);
+    expect(check.reason).toContain("짧아");
   });
 });
 

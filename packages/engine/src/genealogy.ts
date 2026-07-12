@@ -48,7 +48,9 @@ export function countIndependentLineages(docs: GenealogyDoc[]): number {
  * 신뢰 계층이 3 이하(기관/동료평가/조사보고서)인 문서.
  */
 export function countVerifiedPrimaryOrDirect(docs: GenealogyDoc[]): number {
-  return docs.filter(
-    (d) => d.derivedFromDocumentId === null && d.reliabilityTier <= 3
-  ).length;
+  return new Set(
+    docs
+      .filter((d) => d.derivedFromDocumentId === null && d.reliabilityTier <= 3)
+      .map((d) => d.id)
+  ).size;
 }

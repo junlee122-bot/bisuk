@@ -17,6 +17,20 @@ import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 type RenderMode = TabUiState["renderMode"];
 type LodLevel = TabUiState["lodLevel"];
 
+/** 선택 셀 외곽선 — 지오메트리를 메모해 리렌더마다 재생성·미해제되지 않게 한다 */
+function SelectedOutline({ width, height }: { width: number; height: number }) {
+  const edges = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.PlaneGeometry(width, height)),
+    [width, height]
+  );
+  useEffect(() => () => edges.dispose(), [edges]);
+  return (
+    <lineSegments geometry={edges}>
+      <lineBasicMaterial color="#d3a95f" />
+    </lineSegments>
+  );
+}
+
 function SteleMesh({
   params,
   cells,
@@ -32,9 +46,18 @@ function SteleMesh({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  // refetch로 객체 참조가 바뀌어도 실질 내용이 같으면 무거운 지오메트리를 재생성하지 않는다
+  const geometryKey = useMemo(
+    () =>
+      `${lod}::${JSON.stringify(params)}::${cells
+        .map((c) => `${c.id}:${c.strokes?.erodedStrokeIndexes.join(".") ?? ""}`)
+        .join("|")}`,
+    [params, cells, lod]
+  );
   const built = useMemo(
     () => createSteleGeometry(params, cells, lod),
-    [params, cells, lod]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [geometryKey]
   );
   useEffect(() => {
     const g = built.geometry;
@@ -86,12 +109,7 @@ function SteleMesh({
               />
             </mesh>
             {selected && (
-              <lineSegments>
-                <edgesGeometry
-                  args={[new THREE.PlaneGeometry(bw * params.width, bh * params.height)]}
-                />
-                <lineBasicMaterial color="#d3a95f" />
-              </lineSegments>
+              <SelectedOutline width={bw * params.width} height={bh * params.height} />
             )}
           </group>
         );
@@ -201,6 +219,7 @@ export function Viewer3D({
   }
 
   const initialCamera = uiState.camera?.position ?? [0.9, 0.15, 3.1];
+  const initialTarget = uiState.camera?.target ?? [0, 0, 0];
 
   return (
     <div className="relative h-full min-h-[320px]" data-testid="viewer-3d">
@@ -222,6 +241,7 @@ export function Viewer3D({
         <OrbitControls
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ref={controlsRef as any}
+          target={initialTarget}
           enableDamping={false}
           onEnd={() => {
             const c = controlsRef.current;

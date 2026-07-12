@@ -9,10 +9,21 @@ export interface CitationCheck {
   reason: string;
 }
 
+/** 인용 최소 길이 — 흔한 글자 한두 자로 '검증됨'을 만드는 우회를 막는다 */
+export const MIN_QUOTE_LENGTH = 8;
+
 export function verifyCitation(content: string, quote: string): CitationCheck {
   const trimmed = quote.trim();
   if (trimmed.length === 0) {
     return { verified: false, offset: null, context: "", reason: "빈 인용문" };
+  }
+  if ([...trimmed].length < MIN_QUOTE_LENGTH) {
+    return {
+      verified: false,
+      offset: null,
+      context: "",
+      reason: `인용문이 너무 짧아 검증 불충분 (최소 ${MIN_QUOTE_LENGTH}자)`,
+    };
   }
   const offset = content.indexOf(trimmed);
   if (offset < 0) {

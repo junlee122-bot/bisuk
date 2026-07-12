@@ -28,11 +28,23 @@ export function strokesMatch(a: Polyline, b: Polyline, tol = 10): boolean {
   return forward || reverse;
 }
 
+/** 두 획의 매칭 거리 — 양 끝점 거리의 최대값(정/역방향 중 작은 쪽) */
+function strokeMatchDistance(a: Polyline, b: Polyline): number {
+  if (a.length < 2 || b.length < 2) return Infinity;
+  const a0 = a[0]!,
+    a1 = a[a.length - 1]!;
+  const b0 = b[0]!,
+    b1 = b[b.length - 1]!;
+  const forward = Math.max(dist(a0, b0), dist(a1, b1));
+  const reverse = Math.max(dist(a0, b1), dist(a1, b0));
+  return Math.min(forward, reverse);
+}
+
 /**
  * 획 집합 유사도.
  * observed 쪽 획이 얼마나 설명되는가(0.7)와 후보 자형의 획이
- * 얼마나 관측되는가(0.3)를 함께 반영한다. 마모 셀은 후보 자형의
- * 일부만 관측돼도 높은 관측측 일치율을 얻을 수 있다.
+ * 얼마나 관측되는가(0.3)를 함께 반영한다. 매칭은 거리 오름차순
+ * 탐욕 배정이라 획 배열 순서와 무관하게 결정적이다.
  */
 export function strokeSetSimilarity(
   observed: Polyline[],
@@ -40,19 +52,22 @@ export function strokeSetSimilarity(
   tol = 10
 ): number {
   if (observed.length === 0 || reference.length === 0) return 0;
-  let matchedObserved = 0;
-  const usedRef = new Set<number>();
-  for (const o of observed) {
-    for (let i = 0; i < reference.length; i++) {
-      if (usedRef.has(i)) continue;
-      if (strokesMatch(o, reference[i]!, tol)) {
-        matchedObserved++;
-        usedRef.add(i);
-        break;
-      }
+  const pairs: Array<[number, number, number]> = [];
+  for (let i = 0; i < observed.length; i++) {
+    for (let j = 0; j < reference.length; j++) {
+      const d = strokeMatchDistance(observed[i]!, reference[j]!);
+      if (d <= tol) pairs.push([d, i, j]);
     }
   }
-  const observedRatio = matchedObserved / observed.length;
+  pairs.sort((p, q) => p[0] - q[0] || p[1] - q[1] || p[2] - q[2]);
+  const usedObs = new Set<number>();
+  const usedRef = new Set<number>();
+  for (const [, i, j] of pairs) {
+    if (usedObs.has(i) || usedRef.has(j)) continue;
+    usedObs.add(i);
+    usedRef.add(j);
+  }
+  const observedRatio = usedObs.size / observed.length;
   const referenceRatio = usedRef.size / reference.length;
   return observedRatio * 0.7 + referenceRatio * 0.3;
 }

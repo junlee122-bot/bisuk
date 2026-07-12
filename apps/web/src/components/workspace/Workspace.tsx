@@ -51,8 +51,9 @@ export function Workspace({ setId }: { setId: string }) {
   }, [detail?.tab.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const orderMutation = useMutation({
+    // 부분 PATCH — 각 조작이 자기 필드만 저장해 stale 상태로 다른 필드를 되돌리지 않는다
     mutationFn: (body: {
-      activeTabOrder: string[];
+      activeTabOrder?: string[];
       activeTabId?: string | null;
       pinnedTabIds?: string[];
     }) => api.saveTabOrder(setId, body),
@@ -62,19 +63,20 @@ export function Workspace({ setId }: { setId: string }) {
   const uiStateMutation = useMutation({
     mutationFn: ({ tabId, patch }: { tabId: string; patch: Partial<TabUiState> }) =>
       api.saveUiState(tabId, patch),
+    onSuccess: (uiState, { tabId }) => {
+      // 탭 캐시를 서버 반환값으로 동기화 — 재방문 시 stale uiState 복원 방지
+      qc.setQueryData(["tab", tabId], (old: unknown) =>
+        old ? { ...(old as object), tab: { ...(old as { tab: object }).tab, uiState } } : old
+      );
+    },
   });
 
   const activate = useCallback(
     (id: string) => {
       router.replace(`/sets/${setId}?tab=${id}`, { scroll: false });
-      if (overview) {
-        orderMutation.mutate({
-          activeTabOrder: overview.set.activeTabOrder,
-          activeTabId: id,
-        });
-      }
+      orderMutation.mutate({ activeTabId: id });
     },
-    [router, setId, overview] // eslint-disable-line react-hooks/exhaustive-deps
+    [router, setId] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const selectGlyph = useCallback(
@@ -90,18 +92,9 @@ export function Workspace({ setId }: { setId: string }) {
   const changeUiState = useCallback(
     (patch: Partial<TabUiState>) => {
       if (!activeTabId) return;
-      uiStateMutation.mutate(
-        { tabId: activeTabId, patch },
-        {
-          onSuccess: () => {
-            if (patch.renderMode || patch.lodLevel) {
-              void qc.invalidateQueries({ queryKey: ["tab", activeTabId] });
-            }
-          },
-        }
-      );
+      uiStateMutation.mutate({ tabId: activeTabId, patch });
     },
-    [activeTabId, qc] // eslint-disable-line react-hooks/exhaustive-deps
+    [activeTabId] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   if (!overview) {
@@ -144,26 +137,18 @@ export function Workspace({ setId }: { setId: string }) {
         overview={overview}
         activeTabId={activeTabId}
         onActivate={activate}
-        onReorder={(order) =>
-          orderMutation.mutate({ activeTabOrder: order, activeTabId })
-        }
+        onReorder={(order) => orderMutation.mutate({ activeTabOrder: order })}
         onPinToggle={(id) => {
           const pinned = overview.set.pinnedTabIds.includes(id)
             ? overview.set.pinnedTabIds.filter((p) => p !== id)
             : [...overview.set.pinnedTabIds, id];
-          orderMutation.mutate({
-            activeTabOrder: overview.set.activeTabOrder,
-            activeTabId,
-            pinnedTabIds: pinned,
-          });
+          orderMutation.mutate({ pinnedTabIds: pinned });
         }}
         onClose={(id) => {
+          // 서버 archive가 세트 순서·고정·활성탭 정리를 함께 수행한다
           void api.archiveTab(id).then(() => {
-            const remaining = overview.set.activeTabOrder.filter((t) => t !== id);
-            orderMutation.mutate({
-              activeTabOrder: remaining,
-              activeTabId: activeTabId === id ? (remaining[0] ?? null) : activeTabId,
-            });
+            if (activeTabId === id) router.replace(`/sets/${setId}`, { scroll: false });
+            void qc.invalidateQueries({ queryKey: ["set", setId] });
           });
         }}
         onAddTab={(title) => {

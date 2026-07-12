@@ -44,14 +44,19 @@ export function CompareTray({ overview }: { overview: SetOverview }) {
           <span className="max-w-24 truncate">{tab.title}</span>
         </label>
       ))}
-      <Link
-        href={selectedTabs.length >= 2 ? compareHref : "#"}
-        aria-disabled={selectedTabs.length < 2}
-        className={`badge ${selectedTabs.length >= 2 ? "badge-demo" : "badge-neutral opacity-40"}`}
-        data-testid="open-glyph-matrix"
-      >
-        Glyph Matrix 열기 →
-      </Link>
+      {selectedTabs.length >= 2 ? (
+        <Link href={compareHref} className="badge badge-demo" data-testid="open-glyph-matrix">
+          Glyph Matrix 열기 →
+        </Link>
+      ) : (
+        <span
+          className="badge badge-neutral opacity-40"
+          title="비교 탭을 2개 이상 선택하세요"
+          data-testid="open-glyph-matrix"
+        >
+          Glyph Matrix 열기 → (탭 2개 이상 선택)
+        </span>
+      )}
       <button onClick={tray.clear} className="badge badge-neutral" aria-label="트레이 비우기">
         비우기
       </button>

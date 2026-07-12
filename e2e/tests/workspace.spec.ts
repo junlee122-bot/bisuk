@@ -36,6 +36,12 @@ test.describe("E2E 1 — 멀티 탭 상태", () => {
       "true"
     );
 
+    // 광개토 탭을 오른쪽으로 이동 (고정으로 인한 재정렬 리렌더와의 경합을 피해 먼저 수행)
+    await page.getByTestId("tab-gwanggaeto-stele").hover();
+    const moveSave = page.waitForResponse((r) => r.url().includes("/tab-order"));
+    await page.getByTestId("tab-move-right-gwanggaeto-stele").click();
+    await moveSave;
+
     // 울진 탭 고정
     await page.getByTestId("tab-uljin-bongpyeong-stele").hover();
     const pinSave = page.waitForResponse((r) => r.url().includes("/tab-order"));
@@ -45,12 +51,6 @@ test.describe("E2E 1 — 멀티 탭 상태", () => {
       "data-pinned",
       "true"
     );
-
-    // 광개토 탭을 오른쪽으로 이동
-    await page.getByTestId("tab-gwanggaeto-stele").hover();
-    const moveSave = page.waitForResponse((r) => r.url().includes("/tab-order"));
-    await page.getByTestId("tab-move-right-gwanggaeto-stele").click();
-    await moveSave;
 
     // 새로고침 → 상태 복원
     await page.reload();

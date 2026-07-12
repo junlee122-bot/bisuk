@@ -23,19 +23,24 @@ export interface ExportInput {
   corpusVersion: string;
   generatedAt: string;
   audience: "INTERNAL" | "PUBLIC";
+  /** 가상 데모 자산만 가진 탭 id — EpiDoc subtype 표기에 사용 */
+  virtualTabIds?: string[];
 }
 
-const UNCLEARED_RIGHTS = new Set([
-  "UNKNOWN",
-  "VERIFY_REQUIRED",
-  "VERIFY_PER_ASSET",
-  "NO_IMAGE_REDISTRIBUTION_UNTIL_CLEARED",
-  "INTERNAL_RESTRICTED",
+/**
+ * 외부 공개 재배포 허용 목록 — 명시적으로 재배포가 허용된 상태만 통과한다.
+ * VIEW_ONLY·RESEARCH_ONLY·METADATA_ONLY·KOGL_TYPE_4 등 나머지는 전부 차단
+ * (거부 목록이 아닌 허용 목록 방식).
+ */
+const REDISTRIBUTABLE_RIGHTS = new Set([
+  "OPEN_FOR_REUSE",
+  "ATTRIBUTION_REQUIRED",
+  "NONCOMMERCIAL",
 ]);
 
 export function isRedistributable(asset: SteleAsset): boolean {
   if (asset.provenance === "VIRTUAL_DEMO") return true;
-  return !UNCLEARED_RIGHTS.has(asset.rightsState);
+  return REDISTRIBUTABLE_RIGHTS.has(asset.rightsState);
 }
 
 export interface RightsGateResult {
@@ -200,13 +205,15 @@ export function exportEpiDoc(input: ExportInput): string {
   parts.push(`    </appInfo></encodingDesc>`);
   parts.push(`  </teiHeader>`);
   parts.push(`  <text><body>`);
+  const virtualTabs = new Set(input.virtualTabIds ?? input.tabs.map((t) => t.id));
   for (const tab of input.tabs) {
     const cells = input.glyphCells
       .filter((g) => g.steleTabId === tab.id)
       .sort((a, b) => a.lineIndex - b.lineIndex || a.sequenceIndex - b.sequenceIndex);
     if (cells.length === 0) continue;
+    const subtype = virtualTabs.has(tab.id) ? "virtual-demo" : "user-data";
     parts.push(
-      `    <div type="edition" subtype="virtual-demo" n="${xmlEscape(tab.id)}"><head>${xmlEscape(tab.title)}</head>`
+      `    <div type="edition" subtype="${subtype}" n="${xmlEscape(tab.id)}"><head>${xmlEscape(tab.title)}</head>`
     );
     const lines = new Map<number, GlyphCell[]>();
     for (const c of cells) {

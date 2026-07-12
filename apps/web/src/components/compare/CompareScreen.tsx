@@ -10,6 +10,7 @@ import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { DossierModal } from "@/components/workspace/DossierModal";
 
 function RowCandidates({ cellId }: { cellId: string }) {
+  const [error, setError] = useState<string | null>(null);
   const { data, refetch, isFetching } = useQuery({
     queryKey: ["dossier", cellId],
     queryFn: () => api.getDossier(cellId),
@@ -32,7 +33,11 @@ function RowCandidates({ cellId }: { cellId: string }) {
       ) : (
         <button
           onClick={() => {
-            void api.analyzeGlyph(cellId).then(() => refetch());
+            setError(null);
+            api
+              .analyzeGlyph(cellId)
+              .then(() => refetch())
+              .catch((e: Error) => setError(e.message));
           }}
           className="badge badge-neutral"
           disabled={isFetching}
@@ -41,6 +46,7 @@ function RowCandidates({ cellId }: { cellId: string }) {
           분석 실행
         </button>
       )}
+      {error && <p className="mt-0.5 text-red-400">분석 실패: {error}</p>}
     </div>
   );
 }
