@@ -1,0 +1,16 @@
+{
+  "researchSetId": "early-korean-stelae-comparative",
+  "steleId": "chungju-goguryeobi",
+  "assetVariantId": "asset-demo-a (VIRTUAL_DEMO)",
+  "sceneLookId": "look-raking-east",
+  "cameraBookmarkId": null,
+  "selectedGlyphId": null,
+  "measurementAllowed": false,
+  "createdAt": "2026-07-12T15:10:11.317Z",
+  "phase": "AFTER (CONTEMPORARY MUSEUM ARCHIVE)",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "dpr": 1
+  }
+}

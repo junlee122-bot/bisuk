@@ -1,0 +1,17 @@
+{
+  "researchSetId": "early-korean-stelae-comparative",
+  "steleId": "chungju-goguryeobi",
+  "assetVariantId": "asset-demo-a (VIRTUAL_DEMO)",
+  "sceneLookId": null,
+  "cameraBookmarkId": null,
+  "selectedGlyphId": null,
+  "measurementAllowed": false,
+  "createdAt": "2026-07-12T15:09:43.912Z",
+  "phase": "AFTER (CONTEMPORARY MUSEUM ARCHIVE)",
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "dpr": 1
+  },
+  "url": "http://localhost:3100/sets/early-korean-stelae-comparative?tab=chungju-goguryeobi"
+}
