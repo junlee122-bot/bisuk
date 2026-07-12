@@ -6,73 +6,89 @@ export interface LightingConfig {
   label: string;
   /** 환경광(IBL) 강도 */
   envIntensity: number;
-  background: string;
+  /** CSS 무대(cyclorama) 그라데이션 — 캔버스는 투명, 배경은 표시 계층(PRESENTATION_STAGE_ONLY) */
+  stage: { top: string; bottom: string };
+  /** 연구 보기용 중립 무대 (없으면 공통 중립 그레이) */
+  stageResearch?: { top: string; bottom: string };
   exposure: number;
   key: { intensity: number; color: string; castShadow: boolean } | null;
   fill: { intensity: number; position: [number, number, number] } | null;
+  /** 후방 상단 림 라이트 — 밝은 무대에서 윤곽 분리용 (표시 전용) */
+  rim: { intensity: number; position: [number, number, number]; color: string } | null;
   /** 사광 모드: 방위각·고도 사용 */
   raking: boolean;
   note: string;
 }
 
+/** 연구 보기 공통 중립 무대 — 분석 범례와 간섭하지 않는 밝은 중립 그레이 */
+export const RESEARCH_STAGE = { top: "#efeeeb", bottom: "#dcdad4" };
+
 export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
   MUSEUM_NEUTRAL: {
     label: "박물관 중성광",
-    envIntensity: 0.42,
-    background: "#1a1a1e",
+    envIntensity: 0.55,
+    stage: { top: "#f7f4ee", bottom: "#e5ded2" },
     exposure: 1.0,
-    key: { intensity: 1.55, color: "#fff2df", castShadow: true },
+    key: { intensity: 1.35, color: "#fff2df", castShadow: true },
     fill: { intensity: 0.3, position: [-2.5, 0.5, 2.0] },
+    rim: { intensity: 0.55, position: [-1.6, 2.4, -2.6], color: "#fdf6ea" },
     raking: false,
     note: "중성 환경광 + 부드러운 키 라이트 — 일반 감상 기본값",
   },
   FIELD_DAYLIGHT: {
     label: "현장 흐린빛",
-    envIntensity: 0.85,
-    background: "#26292c",
+    envIntensity: 0.9,
+    stage: { top: "#f1f4f6", bottom: "#dbe1e4" },
     exposure: 1.05,
-    key: { intensity: 1.15, color: "#f2f4f5", castShadow: true },
+    key: { intensity: 1.1, color: "#f2f4f5", castShadow: true },
     fill: { intensity: 0.35, position: [-1.5, 2.5, 1.5] },
+    rim: { intensity: 0.35, position: [1.8, 2.2, -2.4], color: "#ffffff" },
     raking: false,
     note: "흐린 낮 야외 관찰 근사 (실제 촬영지 재현 아님)",
   },
   LABORATORY_NEUTRAL: {
     label: "실험실 중성광",
     envIntensity: 1.0,
-    background: "#2b2b2e",
+    stage: { top: "#eeeeec", bottom: "#dddbd6" },
     exposure: 1.0,
     key: { intensity: 0.5, color: "#ffffff", castShadow: false },
     fill: { intensity: 0.5, position: [0, -1, 3] },
+    rim: null,
     raking: false,
     note: "균일 중성광 — 판독·문헌 비교 기본값 (과장 없음)",
   },
   RAKING: {
     label: "사광",
-    envIntensity: 0.12,
-    background: "#101013",
+    envIntensity: 0.14,
+    stage: { top: "#7d7a74", bottom: "#5a5751" },
+    stageResearch: { top: "#7d7a74", bottom: "#5a5751" },
     exposure: 1.15,
     key: { intensity: 3.2, color: "#fff1dc", castShadow: true },
     fill: null,
+    rim: null,
     raking: true,
     note: "표면과 거의 평행한 방향광 — 방위각·고도 조절",
   },
   SWEEP: {
     label: "회전 사광",
-    envIntensity: 0.12,
-    background: "#101013",
+    envIntensity: 0.14,
+    stage: { top: "#7d7a74", bottom: "#5a5751" },
+    stageResearch: { top: "#7d7a74", bottom: "#5a5751" },
     exposure: 1.15,
     key: { intensity: 3.2, color: "#fff1dc", castShadow: true },
     fill: null,
+    rim: null,
     raking: true,
     note: "빛이 표면을 회전 — 획 음영 변화 관찰",
   },
   UNLIT_ALBEDO: {
     label: "무조명",
     envIntensity: 0,
-    background: "#222226",
+    stage: { top: "#f0eeea", bottom: "#e2dfd8" },
     exposure: 1.0,
     key: null,
     fill: null,
+    rim: null,
     raking: false,
     note: "조명 없는 원본 색",
   },

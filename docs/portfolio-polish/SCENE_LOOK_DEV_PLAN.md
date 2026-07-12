@@ -43,7 +43,35 @@
 | Neutral | 원색 충실 | 원본색 검토 모드 적합성 |
 
 결정 원칙: EXHIBITION 기본은 A/B에서 선택, `SOURCE_COLOR_REVIEW` SceneLook은
-Neutral/Unlit 계열 고정. **A/B 결과와 선택 근거·스크린샷은 이 섹션에 추가 기록.**
+Neutral/Unlit 계열 고정.
+
+### A/B 결과 (2026-07-12 · 동일 카메라 [1.5,-0.12,3.62] · MUSEUM_WARM · 전시 무대)
+
+스크린샷: `screenshots/lookdev/tonemap-{ACES,AGX,NEUTRAL}-museum-hero.png`
+(비교 방법: `?toneMapping=AGX|NEUTRAL` 쿼리 — 뷰포트가 렌더러 톤매핑만 교체)
+
+| 후보 | 관찰 결과 |
+|---|---|
+| ACES | 음각 획 벽의 명암 대비가 가장 명확, 석재 색이 중립적으로 유지. 하이라이트 클리핑 없음 |
+| AgX | 전체적으로 가장 부드럽고 라티튜드 넓음 — 대신 획 음영이 살짝 평탄해져 판독 인상 약화 |
+| Neutral | 채도 보존으로 석재가 눈에 띄게 황변(웜 무대 반사 영향) — 전시 기본으로는 과함 |
+
+**결정: 기본(전시·연구) = ACESFilmic 유지.** 밝은 무대에서도 음각 대비·중립 석재색이
+가장 좋았고 기존 파이프라인·회귀 기준과 연속성 유지. `SOURCE_COLOR_REVIEW` SceneLook
+(Phase 5)은 Neutral 고정 — 원본색 검토는 톤매핑 개입 최소가 옳다. AgX는 렌더러 옵션으로
+유지(쿼리/SceneLook에서 선택 가능).
+
+### 무대 구현 결과 (Phase 2 완료분)
+
+- 캔버스 투명(`alpha:true`, `scene.background=null`) + CSS cyclorama
+  (`data-testid=stele-stage`, 프리셋별 그라데이션, 240ms transition).
+- 전시 보기: PresentationStage(플린스+원형 바닥, raycast 무효,
+  PRESENTATION_STAGE_ONLY) 장착. 연구 보기: 중립 라이트 그레이 무대(RESEARCH_STAGE),
+  사광·회전 사광은 관찰 대비를 위해 딥 그레이(#7d7a74→#5a5751 — 검정 아님) 유지.
+- 조명 재보정: MUSEUM env 0.42→0.55/key 1.55→1.35 + 림 0.55, FIELD env 0.9/키 1.1
+  + 림 0.35, 프리셋 전환 240ms 강도 보간(reduced-motion 시 즉시).
+- 기본 카메라 ¾ 히어로 [1.7, -0.12, 4.55] → 모델이 무대 높이의 **약 76%** (목표 62–78%).
+  검증 샷: `screenshots/lookdev/` + Phase 6 AFTER 캡처.
 
 ## 4. 프레이밍·카메라
 

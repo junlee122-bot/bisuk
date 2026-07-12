@@ -7,9 +7,29 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import type { LightingPreset } from "@seokmun/types";
 import { azimuthElevationToDirection, LIGHTING_PRESETS } from "./presets";
 
+export type ToneMappingChoice = "ACES" | "AGX" | "NEUTRAL";
+
+const TONE_MAPPING: Record<ToneMappingChoice, THREE.ToneMapping> = {
+  ACES: THREE.ACESFilmicToneMapping,
+  AGX: THREE.AgXToneMapping,
+  NEUTRAL: THREE.NeutralToneMapping,
+};
+
+/** 프리셋 전환 보간 시간 (스펙 §5: 180–320ms) */
+const PRESET_LERP_S = 0.24;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
 /**
  * 조명 리그 — 중성 IBL(RoomEnvironment, 외부 HDRI 불필요·라이선스 명확) + 프리셋 라이트.
  * HDRI가 실제 촬영지를 재현한다고 주장하지 않는다.
+ * 캔버스는 투명(scene.background = null) — 무대 배경은 CSS cyclorama가 담당한다.
+ * 프리셋 전환은 강도만 180–320ms 보간(표시 계층 전용, Evidence 데이터 불변).
  */
 export function SteleLightingRig({
   preset,
@@ -19,6 +39,7 @@ export function SteleLightingRig({
   shadowMapSize,
   sweep,
   groundY,
+  toneMapping = "ACES",
 }: {
   preset: LightingPreset;
   azimuthDeg: number;
@@ -27,11 +48,21 @@ export function SteleLightingRig({
   shadowMapSize: number;
   sweep: boolean;
   groundY: number;
+  toneMapping?: ToneMappingChoice;
 }) {
   const { gl, scene, invalidate } = useThree();
   const config = LIGHTING_PRESETS[preset];
   const keyRef = useRef<THREE.DirectionalLight>(null);
+  const rimRef = useRef<THREE.DirectionalLight>(null);
   const sweepAngle = useRef(0);
+  // 보간 상태 — 현재 적용값 (프리셋 전환 시 목표로 수렴)
+  const animRef = useRef({
+    env: config.envIntensity,
+    exposure: exposure * config.exposure,
+    key: config.key?.intensity ?? 0,
+    rim: config.rim?.intensity ?? 0,
+    settled: true,
+  });
 
   // 중성 환경광 (PMREM) — 렌더러당 1회 생성
   const envTexture = useMemo(() => {
@@ -44,30 +75,66 @@ export function SteleLightingRig({
   useEffect(() => () => envTexture.dispose(), [envTexture]);
 
   useEffect(() => {
-    gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = exposure * config.exposure;
+    gl.toneMapping = TONE_MAPPING[toneMapping];
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.shadowMap.enabled = shadowMapSize > 0 && Boolean(config.key?.castShadow);
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     scene.environment = config.envIntensity > 0 ? envTexture : null;
-    scene.environmentIntensity = config.envIntensity;
-    scene.background = new THREE.Color(config.background);
+    // 투명 캔버스 — 배경은 CSS 무대가 담당 (검은 clear color 금지)
+    scene.background = null;
+    if (prefersReducedMotion()) {
+      animRef.current = {
+        env: config.envIntensity,
+        exposure: exposure * config.exposure,
+        key: config.key?.intensity ?? 0,
+        rim: config.rim?.intensity ?? 0,
+        settled: true,
+      };
+      scene.environmentIntensity = config.envIntensity;
+      gl.toneMappingExposure = exposure * config.exposure;
+    } else {
+      animRef.current.settled = false;
+    }
     invalidate();
-  }, [gl, scene, config, exposure, envTexture, shadowMapSize, invalidate]);
+  }, [gl, scene, config, exposure, envTexture, shadowMapSize, toneMapping, invalidate]);
 
   const keyPosition = useMemo<[number, number, number]>(() => {
     if (config.raking) return azimuthElevationToDirection(azimuthDeg, elevationDeg, 4);
     return [2.2, 3.0, 3.5];
   }, [config.raking, azimuthDeg, elevationDeg]);
 
-  // Cross-light sweep — 프레임마다 방위각 회전 (사용자 프리셋일 때만)
+  // 프리셋 전환 보간 + sweep 회전
   useFrame((_, delta) => {
-    if (!sweep || !keyRef.current) return;
-    sweepAngle.current += delta * 40; // 도/초
-    const az = (azimuthDeg + sweepAngle.current) % 360;
-    const p = azimuthElevationToDirection(az, elevationDeg, 4);
-    keyRef.current.position.set(p[0], p[1], p[2]);
-    invalidate();
+    const anim = animRef.current;
+    if (!anim.settled) {
+      const step = Math.min(1, delta / PRESET_LERP_S);
+      const targets = {
+        env: config.envIntensity,
+        exposure: exposure * config.exposure,
+        key: config.key?.intensity ?? 0,
+        rim: config.rim?.intensity ?? 0,
+      };
+      let maxDiff = 0;
+      for (const k of ["env", "exposure", "key", "rim"] as const) {
+        anim[k] += (targets[k] - anim[k]) * step * 3;
+        maxDiff = Math.max(maxDiff, Math.abs(targets[k] - anim[k]));
+      }
+      if (maxDiff < 0.004) {
+        Object.assign(anim, targets, { settled: true });
+      }
+      scene.environmentIntensity = anim.env;
+      gl.toneMappingExposure = anim.exposure;
+      if (keyRef.current) keyRef.current.intensity = anim.key;
+      if (rimRef.current) rimRef.current.intensity = anim.rim;
+      invalidate();
+    }
+    if (sweep && keyRef.current) {
+      sweepAngle.current += delta * 40; // 도/초
+      const az = (azimuthDeg + sweepAngle.current) % 360;
+      const p = azimuthElevationToDirection(az, elevationDeg, 4);
+      keyRef.current.position.set(p[0], p[1], p[2]);
+      invalidate();
+    }
   });
 
   return (
@@ -94,11 +161,19 @@ export function SteleLightingRig({
       {config.fill && (
         <directionalLight position={config.fill.position} intensity={config.fill.intensity} />
       )}
-      {/* 접지 그림자 판 — 중성, 반투명 */}
+      {config.rim && (
+        <directionalLight
+          ref={rimRef}
+          position={config.rim.position}
+          intensity={config.rim.intensity}
+          color={config.rim.color}
+        />
+      )}
+      {/* 접지 그림자 판 — 중성, 반투명 (표시 전용) */}
       {shadowMapSize > 0 && config.key?.castShadow && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, groundY, 0]} receiveShadow>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, groundY + 0.002, 0]} receiveShadow>
           <planeGeometry args={[8, 8]} />
-          <shadowMaterial opacity={0.35} />
+          <shadowMaterial opacity={0.32} />
         </mesh>
       )}
     </group>

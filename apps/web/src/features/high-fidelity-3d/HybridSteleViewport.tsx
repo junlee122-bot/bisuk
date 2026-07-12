@@ -14,9 +14,10 @@ import {
   webglSupported,
   type SlabParams,
 } from "./geometryClient";
-import { detectQualityTier, LIGHTING_PRESETS, QUALITY_TIERS } from "./presets";
+import { detectQualityTier, LIGHTING_PRESETS, QUALITY_TIERS, RESEARCH_STAGE } from "./presets";
+import { PresentationStage } from "./PresentationStage";
 import { SteleCameraRig } from "./SteleCameraRig";
-import { SteleLightingRig } from "./SteleLightingRig";
+import { SteleLightingRig, type ToneMappingChoice } from "./SteleLightingRig";
 import { GlyphDetailPatchLayer } from "./GlyphDetailPatchLayer";
 import { SplatLayer } from "./SplatLayer";
 import { ThreeDQualityPanel } from "./ThreeDQualityPanel";
@@ -291,6 +292,12 @@ export function Viewer3D({
   const [webgl, setWebgl] = useState<boolean | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const exhibition = useStageMode((s) => s.mode) === "EXHIBITION";
+  // 톤매핑 — 기본 ACES, 룩 개발 A/B는 ?toneMapping=AGX|NEUTRAL 쿼리로 비교
+  const [toneMappingChoice] = useState<ToneMappingChoice>(() => {
+    if (typeof window === "undefined") return "ACES";
+    const q = new URLSearchParams(window.location.search).get("toneMapping");
+    return q === "AGX" || q === "NEUTRAL" || q === "ACES" ? q : "ACES";
+  });
   const [meshInfo, setMeshInfo] = useState({ triangles: 0, vertices: 0, gpuBytes: 0 });
   const [patchStatus, setPatchStatus] = useState<{
     loading: boolean;
@@ -399,6 +406,11 @@ export function Viewer3D({
   }
 
   const rakingActive = lightingPreset === "RAKING" || lightingPreset === "SWEEP";
+  const lightingConfig = LIGHTING_PRESETS[lightingPreset];
+  // 무대 배경 — 전시: 프리셋 웜 무대 / 연구: 중립 라이트 그레이 (사광 계열은 딥 그레이 유지)
+  const stageColors = exhibition
+    ? lightingConfig.stage
+    : (lightingConfig.stageResearch ?? RESEARCH_STAGE);
 
   return (
     <div className="relative flex h-full min-h-[320px] flex-col" data-testid="viewer-3d">
@@ -574,12 +586,21 @@ export function Viewer3D({
       </>
       )}
 
-      <div ref={canvasWrapRef} className="relative min-h-0 flex-1">
+      <div
+        ref={canvasWrapRef}
+        className="relative min-h-0 flex-1"
+        data-testid="stele-stage"
+        style={{
+          // CSS cyclorama — 캔버스는 투명, 무대 배경은 표시 계층 (검은 배경 금지)
+          background: `linear-gradient(180deg, ${stageColors.top} 0%, ${stageColors.bottom} 100%)`,
+          transition: "background 240ms ease",
+        }}
+      >
         <Canvas
           frameloop="demand"
           shadows={tierConfig.shadowMapSize > 0}
           dpr={tierConfig.dpr}
-          gl={{ powerPreference: "low-power", antialias: true, preserveDrawingBuffer: true }}
+          gl={{ powerPreference: "low-power", antialias: true, alpha: true, preserveDrawingBuffer: true }}
         >
           <SteleLightingRig
             preset={lightingPreset}
@@ -589,7 +610,9 @@ export function Viewer3D({
             shadowMapSize={tierConfig.shadowMapSize}
             sweep={lightingPreset === "SWEEP"}
             groundY={-params.height / 2 - 0.02}
+            toneMapping={toneMappingChoice}
           />
+          {exhibition && meshVisible && <PresentationStage params={params} />}
           <SteleCameraRig
             mode={cameraMode}
             params={params}

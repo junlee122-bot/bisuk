@@ -45,8 +45,9 @@ export function SteleCameraRig({
 
   const ortho = mode === "ORTHOGRAPHIC_RESEARCH" || mode === "FRONT_ELEVATION";
   const maxDim = Math.max(params.width, params.height, params.depth);
-  const savedPos = uiState.camera?.position ?? [0.85, 0.1, 4.0];
-  const savedTarget = uiState.camera?.target ?? [0, 0, 0];
+  // 기본 진입: ¾ 히어로 구도 — 약간 낮은 시점에서 올려봄 (무대 높이 62–78% 프레이밍)
+  const savedPos = uiState.camera?.position ?? [1.7, -0.12, 4.55];
+  const savedTarget = uiState.camera?.target ?? [0, 0.05, 0];
 
   // 글자 포커스: 선택 셀의 3D bounds → 카메라 target/거리 계산 → 부드러운 이동
   useEffect(() => {
