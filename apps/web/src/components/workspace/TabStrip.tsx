@@ -44,7 +44,7 @@ export function TabStrip({
 
   return (
     <div
-      className="flex items-center gap-1 overflow-x-auto border-b border-[var(--panel-border)] bg-[#1a1a20] px-2 py-1.5"
+      className="flex items-center gap-1 overflow-x-auto border-b border-[var(--panel-border)] bg-surface px-2 py-1.5"
       role="tablist"
       aria-label="비석 탭"
     >
@@ -56,10 +56,10 @@ export function TabStrip({
         return (
           <div
             key={id}
-            className={`group flex shrink-0 items-center gap-1.5 rounded-t border px-2 py-1 text-sm ${
+            className={`group relative flex shrink-0 items-center gap-1.5 rounded-t-lg border px-2 py-1 text-sm ${
               active
-                ? "border-[var(--accent)] bg-[var(--panel-bg)]"
-                : "border-transparent bg-[#232329] hover:border-[var(--panel-border)]"
+                ? "border-line-soft bg-[var(--panel-bg)] shadow-[var(--shadow-xs)] after:absolute after:inset-x-1 after:top-0 after:h-0.5 after:rounded-full after:bg-clay"
+                : "border-transparent bg-surface-muted hover:border-line-soft"
             }`}
             data-testid={`tab-${id}`}
             data-active={active}
@@ -73,7 +73,22 @@ export function TabStrip({
               title={tab.canonicalName}
             >
               {pinned.has(id) && <span aria-label="고정됨">📌</span>}
-              <span className="max-w-36 truncate">{tab.title}</span>
+              <svg
+                viewBox="0 0 10 14"
+                width="10"
+                height="14"
+                aria-hidden="true"
+                className={active ? "text-clay" : "text-ink-3"}
+              >
+                <path
+                  d="M2 13 L2 3 Q2 1 5 1 Q8 1 8 3 L8 13 Z"
+                  fill="currentColor"
+                  opacity="0.85"
+                />
+              </svg>
+              <span className={`max-w-36 truncate ${active ? "font-medium" : ""}`}>
+                {tab.title}
+              </span>
               <RoleBadges roles={tab.roles} />
               {badges.has3d && <span className="badge badge-neutral">3D</span>}
               {badges.unresolvedCount > 0 && (
@@ -92,7 +107,7 @@ export function TabStrip({
                 </span>
               )}
             </button>
-            <span className="hidden items-center gap-0.5 text-xs text-neutral-500 group-hover:flex group-focus-within:flex">
+            <span className="hidden items-center gap-0.5 text-xs text-ink-3 group-hover:flex group-focus-within:flex">
               <button
                 onClick={() => move(id, -1)}
                 aria-label={`${tab.title} 왼쪽으로 이동`}
@@ -155,7 +170,7 @@ export function TabStrip({
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="shrink-0 rounded px-2 py-1 text-sm text-neutral-400 hover:text-[var(--accent)]"
+          className="shrink-0 rounded px-2 py-1 text-sm text-ink-2 hover:text-[var(--accent)]"
           data-testid="tab-add"
         >
           + 탭 추가

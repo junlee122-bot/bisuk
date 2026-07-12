@@ -1,33 +1,99 @@
 @import "tailwindcss";
 
+/* ── 석문 Studio — CONTEMPORARY MUSEUM ARCHIVE 라이트 토큰 (portfolio-polish §3.1) ── */
 :root {
-  --stone-bg: #16161a;
-  --panel-bg: #1f1f26;
-  --panel-border: #33333d;
-  --ink: #e8e6e0;
-  --accent: #d3a95f;
+  --canvas-page: #f3f0e9;
+  --canvas-page-deep: #ebe6dc;
+  --surface-primary: #fbfaf7;
+  --surface-secondary: #f6f3ed;
+  --surface-elevated: rgba(255, 254, 250, 0.92);
+  --surface-muted: #ece8df;
+
+  --ink-primary: #1d1c19;
+  --ink-secondary: #5f5b53;
+  --ink-tertiary: #817b70;
+  --ink-inverse: #fbfaf7;
+
+  --line-soft: #ddd7cc;
+  --line-strong: #c8c0b4;
+  --line-focus: #8f593f;
+
+  --accent-clay: #9f5b3f;
+  --accent-clay-strong: #7d432f;
+  --accent-jade: #2f6a62;
+  --accent-jade-soft: #dbe8e4;
+  --accent-ochre: #a96f27;
+
+  --state-success: #31695a;
+  --state-warning: #94641f;
+  --state-danger: #9a463f;
+  --state-info: #42677b;
+
+  --stage-top: #f7f4ee;
+  --stage-bottom: #e5ded2;
+  --stage-floor: #ded6c8;
+  --stage-grid: rgba(70, 65, 58, 0.12);
+
+  --shadow-xs: 0 1px 2px rgba(44, 37, 29, 0.06);
+  --shadow-sm: 0 6px 18px rgba(44, 37, 29, 0.08);
+  --shadow-md: 0 18px 48px rgba(44, 37, 29, 0.1);
+  --shadow-stage: 0 32px 80px rgba(44, 37, 29, 0.16);
+
+  /* 구 다크 토큰 별칭 — 기존 컴포넌트 호환 (값은 라이트) */
+  --stone-bg: var(--canvas-page);
+  --panel-bg: var(--surface-primary);
+  --panel-border: var(--line-soft);
+  --ink: var(--ink-primary);
+  --accent: var(--accent-clay);
+}
+
+/* Tailwind v4 테마 토큰 — bg-surface / text-ink-2 / border-line-soft 등 */
+@theme inline {
+  --color-paper: var(--canvas-page);
+  --color-paper-deep: var(--canvas-page-deep);
+  --color-surface: var(--surface-primary);
+  --color-surface-2: var(--surface-secondary);
+  --color-surface-muted: var(--surface-muted);
+  --color-ink: var(--ink-primary);
+  --color-ink-2: var(--ink-secondary);
+  --color-ink-3: var(--ink-tertiary);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-line-soft: var(--line-soft);
+  --color-line-strong: var(--line-strong);
+  --color-clay: var(--accent-clay);
+  --color-clay-strong: var(--accent-clay-strong);
+  --color-jade: var(--accent-jade);
+  --color-jade-soft: var(--accent-jade-soft);
+  --color-ochre: var(--accent-ochre);
+  --color-scrim: rgba(29, 28, 25, 0.45);
+  --font-display: var(--font-serif-kr, "Noto Serif KR"), "Nanum Myeongjo", ui-serif, serif;
 }
 
 html,
 body {
-  background: var(--stone-bg);
-  color: var(--ink);
+  background: var(--canvas-page);
+  color: var(--ink-primary);
   font-family:
-    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui,
-    -apple-system, sans-serif;
+    var(--font-sans-kr, "Noto Sans KR"), "Apple SD Gothic Neo", "Malgun Gothic",
+    system-ui, -apple-system, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-serif-kr, "Noto Serif KR"), "Nanum Myeongjo", ui-serif, serif;
 }
 
 .panel {
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 0.5rem;
+  background: var(--surface-primary);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-xs);
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  border-radius: 0.3rem;
+  border-radius: 0.35rem;
   padding: 0.05rem 0.4rem;
   font-size: 0.68rem;
   line-height: 1.2rem;
@@ -35,39 +101,46 @@ body {
   border: 1px solid transparent;
 }
 
+/* 배지 — 저채도 라이트 배경 + 진한 잉크 (다크 반전) */
 .badge-demo {
-  background: #3d2f14;
-  color: #f0c980;
-  border-color: #6b5423;
+  background: #f5ead3;
+  color: #79521a;
+  border-color: #e2cfa4;
 }
 .badge-rights {
-  background: #401c1c;
-  color: #f2a0a0;
-  border-color: #703030;
+  background: #f7e3e0;
+  color: #8a3c35;
+  border-color: #e6c3be;
 }
 .badge-frontier {
-  background: #1c3340;
-  color: #8fd0f2;
-  border-color: #2f5b70;
+  background: #e1ecf2;
+  color: #3b6377;
+  border-color: #c2d6e1;
 }
 .badge-ok {
-  background: #1c4028;
-  color: #9df2b7;
-  border-color: #2f7045;
+  background: #dfede6;
+  color: #2c614f;
+  border-color: #bdd7ca;
 }
 .badge-neutral {
-  background: #2c2c34;
-  color: #b9b9c4;
-  border-color: #44444f;
+  background: #edeae2;
+  color: #5f5b53;
+  border-color: #d9d3c7;
 }
 .badge-warn {
-  background: #403a1c;
-  color: #f2e39d;
-  border-color: #6f6530;
+  background: #f4edd6;
+  color: #7c5c1c;
+  border-color: #e1d3a6;
 }
 
 button {
   cursor: pointer;
+}
+
+:is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 1px;
+  border-radius: 0.25rem;
 }
 
 ::-webkit-scrollbar {
@@ -75,6 +148,15 @@ button {
   width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3a3a44;
+  background: var(--line-strong);
   border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

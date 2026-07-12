@@ -27,7 +27,7 @@ export default function DashboardPage() {
           석문<span className="text-[var(--accent)]">(石文)</span> Comparative
           Autonomous Studio
         </h1>
-        <p className="mt-1 text-sm text-neutral-400">
+        <p className="mt-1 text-sm text-ink-2">
           여러 비석·조각·탁본·판독문을 탭으로 열고, 문헌을 교차 검색해 근거 중심으로
           복원 가설을 검증하는 연구 작업대
         </p>
@@ -39,7 +39,7 @@ export default function DashboardPage() {
       </header>
 
       <section aria-label="연구 세트 목록" className="grid gap-4">
-        {isLoading && <p className="text-neutral-400">불러오는 중…</p>}
+        {isLoading && <p className="text-ink-2">불러오는 중…</p>}
         {sets?.map(({ set, stats }) => (
           <Link
             key={set.id}
@@ -49,30 +49,30 @@ export default function DashboardPage() {
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-lg font-semibold">{set.name}</h2>
-              <span className="text-xs text-neutral-400">
+              <span className="text-xs text-ink-2">
                 열린 탭 {stats.tabCount}개
               </span>
             </div>
-            <p className="mt-1 text-sm text-neutral-400">{set.description}</p>
+            <p className="mt-1 text-sm text-ink-2">{set.description}</p>
             <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
               <div className="panel p-2">
-                <dt className="text-neutral-500">주 대상</dt>
+                <dt className="text-ink-3">주 대상</dt>
                 <dd className="mt-0.5 font-medium">{stats.primaryTabTitle ?? "—"}</dd>
               </div>
               <div className="panel p-2">
-                <dt className="text-neutral-500">미해결 문자</dt>
+                <dt className="text-ink-3">미해결 문자</dt>
                 <dd className="mt-0.5 font-medium">{stats.unresolvedGlyphs}</dd>
               </div>
               <div className="panel p-2">
-                <dt className="text-neutral-500">상충 가설</dt>
+                <dt className="text-ink-3">상충 가설</dt>
                 <dd className="mt-0.5 font-medium">{stats.conflictingGlyphs}</dd>
               </div>
               <div className="panel p-2">
-                <dt className="text-neutral-500">권리 확인 필요</dt>
+                <dt className="text-ink-3">권리 확인 필요</dt>
                 <dd className="mt-0.5 font-medium">{stats.rightsWarnings}</dd>
               </div>
               <div className="panel p-2">
-                <dt className="text-neutral-500">Frontier 항목</dt>
+                <dt className="text-ink-3">Frontier 항목</dt>
                 <dd className="mt-0.5 font-medium">{stats.frontierItems}</dd>
               </div>
             </dl>
@@ -81,7 +81,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="panel mt-6 p-4" aria-label="연구 세트 생성">
-        <h2 className="text-sm font-semibold text-neutral-300">새 연구 세트</h2>
+        <h2 className="text-sm font-semibold text-ink-2">새 연구 세트</h2>
         <form
           className="mt-2 flex flex-wrap gap-2"
           onSubmit={(e) => {
@@ -105,7 +105,7 @@ export default function DashboardPage() {
           </button>
         </form>
         {createMutation.isError && (
-          <p className="mt-2 text-xs text-red-400">
+          <p className="mt-2 text-xs text-[var(--state-danger)]">
             생성 실패: {(createMutation.error as Error).message}
           </p>
         )}

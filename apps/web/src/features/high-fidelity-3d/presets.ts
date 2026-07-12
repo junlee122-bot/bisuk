@@ -17,7 +17,7 @@ export interface LightingConfig {
 
 export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
   MUSEUM_NEUTRAL: {
-    label: "Museum",
+    label: "박물관 중성광",
     envIntensity: 0.42,
     background: "#1a1a1e",
     exposure: 1.0,
@@ -27,7 +27,7 @@ export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
     note: "중성 환경광 + 부드러운 키 라이트 — 일반 감상 기본값",
   },
   FIELD_DAYLIGHT: {
-    label: "Field",
+    label: "현장 흐린빛",
     envIntensity: 0.85,
     background: "#26292c",
     exposure: 1.05,
@@ -37,7 +37,7 @@ export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
     note: "흐린 낮 야외 관찰 근사 (실제 촬영지 재현 아님)",
   },
   LABORATORY_NEUTRAL: {
-    label: "Lab",
+    label: "실험실 중성광",
     envIntensity: 1.0,
     background: "#2b2b2e",
     exposure: 1.0,
@@ -47,7 +47,7 @@ export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
     note: "균일 중성광 — 판독·문헌 비교 기본값 (과장 없음)",
   },
   RAKING: {
-    label: "Raking",
+    label: "사광",
     envIntensity: 0.12,
     background: "#101013",
     exposure: 1.15,
@@ -57,7 +57,7 @@ export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
     note: "표면과 거의 평행한 방향광 — 방위각·고도 조절",
   },
   SWEEP: {
-    label: "Sweep",
+    label: "회전 사광",
     envIntensity: 0.12,
     background: "#101013",
     exposure: 1.15,
@@ -67,7 +67,7 @@ export const LIGHTING_PRESETS: Record<LightingPreset, LightingConfig> = {
     note: "빛이 표면을 회전 — 획 음영 변화 관찰",
   },
   UNLIT_ALBEDO: {
-    label: "Unlit",
+    label: "무조명",
     envIntensity: 0,
     background: "#222226",
     exposure: 1.0,
@@ -87,11 +87,11 @@ export interface QualityConfig {
 }
 
 export const QUALITY_TIERS: Record<Exclude<QualityTier, "AUTO">, QualityConfig> = {
-  ULTRA: { label: "Ultra", dpr: [1, 2], shadowMapSize: 2048, maxDetailPatches: 6, splatFraction: 1 },
-  HIGH: { label: "High", dpr: [1, 1.75], shadowMapSize: 1024, maxDetailPatches: 4, splatFraction: 1 },
-  BALANCED: { label: "Balanced", dpr: [1, 1.25], shadowMapSize: 1024, maxDetailPatches: 2, splatFraction: 0.6 },
-  MOBILE: { label: "Mobile", dpr: [0.8, 1], shadowMapSize: 512, maxDetailPatches: 1, splatFraction: 0.35 },
-  BATTERY_SAVER: { label: "Battery", dpr: [0.6, 0.8], shadowMapSize: 0, maxDetailPatches: 0, splatFraction: 0.2 },
+  ULTRA: { label: "최고", dpr: [1, 2], shadowMapSize: 2048, maxDetailPatches: 6, splatFraction: 1 },
+  HIGH: { label: "높음", dpr: [1, 1.75], shadowMapSize: 1024, maxDetailPatches: 4, splatFraction: 1 },
+  BALANCED: { label: "중간", dpr: [1, 1.25], shadowMapSize: 1024, maxDetailPatches: 2, splatFraction: 0.6 },
+  MOBILE: { label: "낮음", dpr: [0.8, 1], shadowMapSize: 512, maxDetailPatches: 1, splatFraction: 0.35 },
+  BATTERY_SAVER: { label: "절전", dpr: [0.6, 0.8], shadowMapSize: 0, maxDetailPatches: 0, splatFraction: 0.2 },
 };
 
 /** 기기 성능 근사 감지 — 사용자 변경 가능 */

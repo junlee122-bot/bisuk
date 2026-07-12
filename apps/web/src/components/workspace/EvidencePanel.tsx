@@ -71,7 +71,7 @@ function DocumentUpload({ tabId }: { tabId: string }) {
           닫기
         </button>
       </div>
-      {done && <p className="text-[11px] text-emerald-300" data-testid="doc-done">{done}</p>}
+      {done && <p className="text-[11px] text-[var(--state-success)]" data-testid="doc-done">{done}</p>}
     </form>
   );
 }
@@ -93,7 +93,7 @@ function LiteratureSearch({
   });
   return (
     <section className="panel p-2" data-testid="literature-search">
-      <h3 className="text-xs font-semibold text-neutral-400">문헌 검색 (BM25 + 이체자)</h3>
+      <h3 className="text-xs font-semibold text-ink-2">문헌 검색 (BM25 + 이체자)</h3>
       <form
         className="mt-1 flex gap-1"
         onSubmit={(e) => {
@@ -126,21 +126,21 @@ function LiteratureSearch({
           검색
         </button>
       </form>
-      {isFetching && <p className="mt-1 text-xs text-neutral-500">검색 중…</p>}
+      {isFetching && <p className="mt-1 text-xs text-ink-3">검색 중…</p>}
       <ul className="mt-2 max-h-56 space-y-1.5 overflow-y-auto">
         {hits?.map((h) => (
-          <li key={h.document.id} className="rounded bg-[#26262e] p-2 text-xs" data-testid="literature-hit">
+          <li key={h.document.id} className="rounded bg-surface-2 p-2 text-xs" data-testid="literature-hit">
             <div className="flex flex-wrap items-center gap-1">
-              <strong className="text-neutral-200">{h.document.title}</strong>
+              <strong className="text-ink">{h.document.title}</strong>
               {h.document.isFictional && <span className="badge badge-demo">허구 문헌</span>}
               {h.benchmarkLeak && (
                 <span className="badge badge-rights">누출 위험 — 근거 사용 금지</span>
               )}
               <span className="badge badge-neutral">tier {h.document.reliabilityTier}</span>
             </div>
-            <p className="mt-1 text-neutral-400">…{h.snippet}…</p>
+            <p className="mt-1 text-ink-2">…{h.snippet}…</p>
             {h.claims.length > 0 && (
-              <p className="mt-1 text-neutral-500">
+              <p className="mt-1 text-ink-3">
                 주장:{" "}
                 {h.claims
                   .map((c) => `${c.character} ${c.stance === "SUPPORT" ? "지지" : "반대"}`)
@@ -150,7 +150,7 @@ function LiteratureSearch({
           </li>
         ))}
         {hits && hits.length === 0 && (
-          <li className="text-xs text-neutral-500">결과 없음</li>
+          <li className="text-xs text-ink-3">결과 없음</li>
         )}
       </ul>
       <DocumentUpload tabId={tabId} />
@@ -185,7 +185,7 @@ export function EvidencePanel({
   return (
     <div className="flex h-full flex-col gap-2 overflow-y-auto p-2" data-testid="evidence-panel">
       {!cell && (
-        <p className="p-3 text-xs text-neutral-500">
+        <p className="p-3 text-xs text-ink-3">
           작업대나 트리에서 문자 셀을 선택하면 후보·근거·반증이 표시됩니다.
         </p>
       )}
@@ -201,7 +201,7 @@ export function EvidencePanel({
                 <span className="badge badge-neutral">손상 {cell.damageGrade}</span>
               </p>
               {cell.publishedReading && (
-                <p className="mt-0.5 text-neutral-400">
+                <p className="mt-0.5 text-ink-2">
                   기존 판독(공개): {cell.publishedReading}
                 </p>
               )}
@@ -236,7 +236,7 @@ export function EvidencePanel({
           {shownResult && (
             <>
               <section className="panel p-2" data-testid="analysis-result">
-                <h3 className="text-xs font-semibold text-neutral-400">
+                <h3 className="text-xs font-semibold text-ink-2">
                   결정{" "}
                   <span
                     className={`badge ${
@@ -252,20 +252,20 @@ export function EvidencePanel({
                   </span>
                 </h3>
                 {shownResult.decision && !shownResult.decision.passed && (
-                  <p className="mt-1 text-[11px] text-amber-200" data-testid="failed-rules">
+                  <p className="mt-1 text-[11px] text-[var(--state-warning)]" data-testid="failed-rules">
                     게이트 실패: {shownResult.decision.failedRules.join(", ")}
                   </p>
                 )}
-                <p className="mt-1 text-[11px] text-neutral-500">
+                <p className="mt-1 text-[11px] text-ink-3">
                   독립 계보 {shownResult.independentLineageCount}개 · 실행 {shownResult.runId}
                 </p>
               </section>
 
               <section className="panel p-2" data-testid="candidates">
-                <h3 className="text-xs font-semibold text-neutral-400">후보 (독립 생성)</h3>
+                <h3 className="text-xs font-semibold text-ink-2">후보 (독립 생성)</h3>
                 <table className="mt-1 w-full text-[11px]">
                   <thead>
-                    <tr className="text-left text-neutral-500">
+                    <tr className="text-left text-ink-3">
                       <th>후보</th>
                       <th>출처</th>
                       <th className="text-right">시각</th>
@@ -282,7 +282,7 @@ export function EvidencePanel({
                         data-testid={`candidate-${c.candidateCharacter}`}
                       >
                         <td className="py-1 text-base">{c.candidateCharacter}</td>
-                        <td className="text-neutral-500">{c.origin}</td>
+                        <td className="text-ink-3">{c.origin}</td>
                         <td className="text-right tabular-nums">{c.visualScore}</td>
                         <td className="text-right tabular-nums">{c.crossSteleScore}</td>
                         <td className="text-right tabular-nums">{c.textualScore}</td>
@@ -296,10 +296,10 @@ export function EvidencePanel({
               </section>
 
               <section className="panel p-2" data-testid="evidence-list">
-                <h3 className="text-xs font-semibold text-neutral-400">근거 · 반증</h3>
+                <h3 className="text-xs font-semibold text-ink-2">근거 · 반증</h3>
                 <ul className="mt-1 max-h-64 space-y-1.5 overflow-y-auto">
                   {shownResult.evidence.map((e) => (
-                    <li key={e.id} className="rounded bg-[#26262e] p-2 text-[11px]">
+                    <li key={e.id} className="rounded bg-surface-2 p-2 text-[11px]">
                       <div className="flex flex-wrap gap-1">
                         <span
                           className={`badge ${e.kind === "SUPPORT" ? "badge-ok" : "badge-rights"}`}
@@ -313,14 +313,14 @@ export function EvidencePanel({
                         </span>
                         <span className="badge badge-neutral">{e.independenceGroup}</span>
                       </div>
-                      <p className="mt-1 text-neutral-300">{e.note}</p>
-                      <blockquote className="mt-0.5 border-l-2 border-[var(--accent)] pl-1.5 text-neutral-400">
+                      <p className="mt-1 text-ink-2">{e.note}</p>
+                      <blockquote className="mt-0.5 border-l-2 border-[var(--accent)] pl-1.5 text-ink-2">
                         {e.quote}
                       </blockquote>
                     </li>
                   ))}
                   {shownResult.evidence.length === 0 && (
-                    <li className="text-neutral-500">문헌 근거 없음</li>
+                    <li className="text-ink-3">문헌 근거 없음</li>
                   )}
                 </ul>
               </section>

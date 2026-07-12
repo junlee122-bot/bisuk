@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TabUiState } from "@seokmun/types";
 import type { TabDetail } from "@/lib/api";
 import { DemoBadge, RightsBadge } from "@/components/badges";
+import { ASSET_MODE_LABEL } from "@/lib/labels";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { Viewer3D } from "@/features/high-fidelity-3d/HybridSteleViewport";
 import { FragmentViewer } from "@/components/three/FragmentViewer";
@@ -34,7 +35,7 @@ function TranscriptionViewer({
         .sort((a, b) => a[0] - b[0])
         .map(([line, cells]) => (
           <div key={line} className="flex flex-wrap items-center gap-2">
-            <span className="w-10 text-xs text-neutral-500">{line}행</span>
+            <span className="w-10 text-xs text-ink-3">{line}행</span>
             {cells
               .sort((a, b) => a.sequenceIndex - b.sequenceIndex)
               .map((c) => (
@@ -45,7 +46,7 @@ function TranscriptionViewer({
           </div>
         ))}
       {detail.glyphCells.length === 0 && (
-        <p className="text-sm text-neutral-500">판독문 데이터가 없습니다.</p>
+        <p className="text-sm text-ink-3">판독문 데이터가 없습니다.</p>
       )}
     </div>
   );
@@ -67,7 +68,7 @@ function MetadataViewer({ detail }: { detail: TabDetail }) {
               1차 판독 — 확정 아님
             </span>
           </h3>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-neutral-300">
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-ink-2">
             {tab.preliminaryClaims.map((c) => (
               <li key={c}>{c}</li>
             ))}
@@ -75,9 +76,9 @@ function MetadataViewer({ detail }: { detail: TabDetail }) {
         </section>
       )}
       {tab.warnings.length > 0 && (
-        <section className="panel border-amber-900 p-3">
-          <h3 className="text-sm font-semibold text-amber-200">주의</h3>
-          <ul className="mt-1 list-inside list-disc text-sm text-amber-100/80">
+        <section className="panel border-[#e1d3a6] bg-[#f4edd6] p-3">
+          <h3 className="text-sm font-semibold text-[var(--state-warning)]">주의</h3>
+          <ul className="mt-1 list-inside list-disc text-sm text-[#6f5b28]">
             {tab.warnings.map((w) => (
               <li key={w}>{w}</li>
             ))}
@@ -87,7 +88,7 @@ function MetadataViewer({ detail }: { detail: TabDetail }) {
       {tab.knownFacts.length > 0 && (
         <section className="panel p-3">
           <h3 className="text-sm font-semibold">알려진 사실 (공개 기록)</h3>
-          <ul className="mt-1 list-inside list-disc text-sm text-neutral-300">
+          <ul className="mt-1 list-inside list-disc text-sm text-ink-2">
             {tab.knownFacts.map((f) => (
               <li key={f}>{f}</li>
             ))}
@@ -97,7 +98,7 @@ function MetadataViewer({ detail }: { detail: TabDetail }) {
       {tab.questions.length > 0 && (
         <section className="panel p-3">
           <h3 className="text-sm font-semibold">연구 질문</h3>
-          <ul className="mt-1 list-inside list-disc text-sm text-neutral-300">
+          <ul className="mt-1 list-inside list-disc text-sm text-ink-2">
             {tab.questions.map((q) => (
               <li key={q}>{q}</li>
             ))}
@@ -107,7 +108,7 @@ function MetadataViewer({ detail }: { detail: TabDetail }) {
       {tab.restrictions.length > 0 && (
         <section className="panel p-3">
           <h3 className="text-sm font-semibold">운영 제한</h3>
-          <ul className="mt-1 list-inside list-disc text-sm text-neutral-300">
+          <ul className="mt-1 list-inside list-disc text-sm text-ink-2">
             {tab.restrictions.map((r) => (
               <li key={r}>{r}</li>
             ))}
@@ -186,8 +187,8 @@ export function Workbench({
         >
           Source Card · 자산
         </button>
-        <span className="ml-auto text-neutral-500">
-          자산 모드 {detail.tab.assetMode}
+        <span className="ml-auto text-ink-3" title={detail.tab.assetMode}>
+          자산 모드 {ASSET_MODE_LABEL[detail.tab.assetMode]} ({detail.tab.assetMode})
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{center}</div>

@@ -46,7 +46,7 @@ function RowCandidates({ cellId }: { cellId: string }) {
           분석 실행
         </button>
       )}
-      {error && <p className="mt-0.5 text-red-400">분석 실패: {error}</p>}
+      {error && <p className="mt-0.5 text-[var(--state-danger)]">분석 실패: {error}</p>}
     </div>
   );
 }
@@ -68,7 +68,7 @@ export function CompareScreen({ setId }: { setId: string }) {
       <header className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/sets/${setId}`}
-          className="text-sm text-neutral-400 hover:text-[var(--accent)]"
+          className="text-sm text-ink-2 hover:text-[var(--accent)]"
         >
           ← 워크스페이스
         </Link>
@@ -77,23 +77,23 @@ export function CompareScreen({ setId }: { setId: string }) {
       </header>
 
       {(cells.length === 0 || tabs.length < 2) && (
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-ink-2">
           비교하려면 문자 셀 1개 이상과 비석 탭 2개 이상을 선택하세요. (워크스페이스 →
           비교 트레이)
         </p>
       )}
-      {error && <p className="text-sm text-red-400">{(error as Error).message}</p>}
+      {error && <p className="text-sm text-[var(--state-danger)]">{(error as Error).message}</p>}
 
       {matrix && (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse" data-testid="glyph-matrix">
             <thead>
               <tr>
-                <th className="p-2 text-left text-xs text-neutral-500">선택 글자</th>
+                <th className="p-2 text-left text-xs text-ink-3">선택 글자</th>
                 {matrix.rows[0]?.columns.map((col) => (
-                  <th key={col.tab.id} className="p-2 text-left text-xs text-neutral-400">
+                  <th key={col.tab.id} className="p-2 text-left text-xs text-ink-2">
                     {col.tab.title}
-                    <span className="ml-1 text-neutral-600">
+                    <span className="ml-1 text-ink-3">
                       ({col.tab.roles.join("/")})
                     </span>
                   </th>
@@ -112,7 +112,7 @@ export function CompareScreen({ setId }: { setId: string }) {
                       <GlyphPatchSvg cell={row.sourceGlyphCell} size={64} />
                       <div className="text-xs">
                         <p className="font-semibold">{row.sourceGlyphCell.id}</p>
-                        <p className="text-neutral-500">{row.sourceTab.title}</p>
+                        <p className="text-ink-3">{row.sourceTab.title}</p>
                         <ReadingBadge status={row.sourceGlyphCell.readingStatus} />
                         <RowCandidates cellId={row.sourceGlyphCell.id} />
                         <button
@@ -156,9 +156,9 @@ export function CompareScreen({ setId }: { setId: string }) {
                                 </p>
                               )}
                               {cell.match && (
-                                <p className="text-neutral-400">
+                                <p className="text-ink-2">
                                   유사도{" "}
-                                  <span className="font-semibold text-neutral-200">
+                                  <span className="font-semibold text-ink">
                                     {cell.match.combinedScore}
                                   </span>
                                 </p>
@@ -170,7 +170,7 @@ export function CompareScreen({ setId }: { setId: string }) {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-xs text-neutral-600">
+                          <p className="text-xs text-ink-3">
                             유사 글자 없음 / 자산 없음
                           </p>
                         )}

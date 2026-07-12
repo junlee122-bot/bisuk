@@ -98,18 +98,15 @@ export function Workspace({ setId }: { setId: string }) {
   );
 
   if (!overview) {
-    return <p className="p-8 text-sm text-neutral-400">연구 세트 불러오는 중…</p>;
+    return <p className="p-8 text-sm text-ink-2">연구 세트 불러오는 중…</p>;
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex flex-wrap items-center gap-2 border-b border-[var(--panel-border)] bg-[#1a1a20] px-3 py-2">
-        <Link href="/" className="text-sm text-neutral-400 hover:text-[var(--accent)]">
+    <div className="flex h-full flex-col">
+      <header className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-surface px-3 py-1.5">
+        <Link href="/" className="text-sm text-ink-2 hover:text-[var(--accent)]">
           ← 대시보드
         </Link>
-        <h1 className="text-sm font-semibold sm:text-base" data-testid="set-title">
-          {overview.set.name}
-        </h1>
         <span className="badge badge-neutral hidden sm:inline-flex">
           미해결 {overview.stats.unresolvedGlyphs}
         </span>
@@ -118,7 +115,7 @@ export function Workspace({ setId }: { setId: string }) {
         </span>
         <nav className="ml-auto flex items-center gap-2 text-xs">
           <Link href="/frontier" className="badge badge-frontier">
-            Frontier
+            발견 동향
           </Link>
           <Link href={`/sets/${setId}/audit`} className="badge badge-neutral">
             감사 로그
@@ -162,7 +159,7 @@ export function Workspace({ setId }: { setId: string }) {
         }}
       />
 
-      <div className="flex gap-1 border-b border-[var(--panel-border)] bg-[#1a1a20] px-2 py-1 lg:hidden">
+      <div className="flex gap-1 border-b border-[var(--panel-border)] bg-surface px-2 py-1 lg:hidden">
         {(
           [
             ["tree", "트리"],
@@ -189,7 +186,7 @@ export function Workspace({ setId }: { setId: string }) {
           {detail ? (
             <GlyphTree detail={detail} selectedId={selectedGlyph} onSelect={selectGlyph} />
           ) : (
-            <p className="p-3 text-xs text-neutral-500">탭 불러오는 중…</p>
+            <p className="p-3 text-xs text-ink-3">탭 불러오는 중…</p>
           )}
         </aside>
         <main
@@ -204,7 +201,7 @@ export function Workspace({ setId }: { setId: string }) {
               onUiStateChange={changeUiState}
             />
           ) : (
-            <p className="p-6 text-sm text-neutral-500">탭 불러오는 중…</p>
+            <p className="p-6 text-sm text-ink-3">탭 불러오는 중…</p>
           )}
         </main>
         <aside

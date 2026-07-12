@@ -28,7 +28,7 @@ export function DossierModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-3"
       role="dialog"
       aria-modal="true"
       aria-label="Evidence Dossier"
@@ -45,7 +45,7 @@ export function DossierModal({
             닫기 ✕
           </button>
         </div>
-        {isLoading && <p className="mt-4 text-sm text-neutral-400">불러오는 중…</p>}
+        {isLoading && <p className="mt-4 text-sm text-ink-2">불러오는 중…</p>}
         {data && (
           <div className="mt-3 space-y-3 text-sm">
             <section className="panel p-3">
@@ -65,9 +65,9 @@ export function DossierModal({
                       </span>
                     </p>
                   ) : (
-                    <p className="text-neutral-400">아직 분석이 실행되지 않았습니다.</p>
+                    <p className="text-ink-2">아직 분석이 실행되지 않았습니다.</p>
                   )}
-                  <p className="mt-1 text-xs text-neutral-500">
+                  <p className="mt-1 text-xs text-ink-3">
                     {data.tab.title} · {data.glyphCell.faceId} · {data.glyphCell.lineIndex}행{" "}
                     {data.glyphCell.sequenceIndex}자 · 관측도{" "}
                     {data.glyphCell.observabilityScore}
@@ -91,7 +91,7 @@ export function DossierModal({
                 </h3>
                 <table className="mt-2 w-full text-xs">
                   <thead>
-                    <tr className="text-left text-neutral-500">
+                    <tr className="text-left text-ink-3">
                       <th className="pr-2">규칙</th>
                       <th className="pr-2">기준</th>
                       <th className="pr-2">실제</th>
@@ -104,7 +104,7 @@ export function DossierModal({
                         <td className="py-1 pr-2 font-mono">{r.rule}</td>
                         <td className="pr-2">{r.expected}</td>
                         <td className="pr-2 tabular-nums">{r.actual}</td>
-                        <td>{r.passed ? "✓" : <span className="text-red-400">✗</span>}</td>
+                        <td>{r.passed ? "✓" : <span className="text-[var(--state-danger)]">✗</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -129,7 +129,7 @@ export function DossierModal({
               <h3 className="font-semibold">근거 (지지 / 반대)</h3>
               <ul className="mt-2 space-y-2">
                 {data.evidence.map((e) => (
-                  <li key={e.id} className="rounded bg-[#26262e] p-2 text-xs">
+                  <li key={e.id} className="rounded bg-surface-2 p-2 text-xs">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span
                         className={`badge ${e.kind === "SUPPORT" ? "badge-ok" : "badge-rights"}`}
@@ -144,14 +144,14 @@ export function DossierModal({
                         {e.citationVerified ? "인용 위치 확인" : "인용 미확인"}
                       </span>
                     </div>
-                    <p className="mt-1 text-neutral-300">{e.note}</p>
-                    <blockquote className="mt-1 border-l-2 border-[var(--accent)] pl-2 text-neutral-400">
+                    <p className="mt-1 text-ink-2">{e.note}</p>
+                    <blockquote className="mt-1 border-l-2 border-[var(--accent)] pl-2 text-ink-2">
                       {e.citationContext || e.quote}
                     </blockquote>
                   </li>
                 ))}
                 {data.evidence.length === 0 && (
-                  <li className="text-xs text-neutral-500">수집된 문헌 근거 없음</li>
+                  <li className="text-xs text-ink-3">수집된 문헌 근거 없음</li>
                 )}
               </ul>
             </section>
@@ -160,16 +160,16 @@ export function DossierModal({
               <h3 className="font-semibold">출처 계보 (재인용 병합)</h3>
               <ul className="mt-1 space-y-1 text-xs">
                 {data.sourceGenealogy.map((g) => (
-                  <li key={g.independenceGroup} className="rounded bg-[#26262e] p-2">
+                  <li key={g.independenceGroup} className="rounded bg-surface-2 p-2">
                     <span className="badge badge-neutral">{g.independenceGroup}</span>{" "}
-                    <span className="text-neutral-400">
+                    <span className="text-ink-2">
                       문서 {g.documentIds.length}건 → 독립 근거 1개로 계산
                     </span>
-                    <p className="mt-1 text-neutral-500">{g.titles.join(" · ")}</p>
+                    <p className="mt-1 text-ink-3">{g.titles.join(" · ")}</p>
                   </li>
                 ))}
                 {data.sourceGenealogy.length === 0 && (
-                  <li className="text-neutral-500">계보 정보 없음</li>
+                  <li className="text-ink-3">계보 정보 없음</li>
                 )}
               </ul>
             </section>
@@ -182,7 +182,7 @@ export function DossierModal({
                     <li key={m.id} className="flex flex-wrap items-center gap-2">
                       <span className="badge badge-neutral">{m.targetGlyphCellId}</span>
                       <span>종합 {m.combinedScore}</span>
-                      <span className="text-neutral-500">
+                      <span className="text-ink-3">
                         시각 {m.visualScore} · 서체 {m.scriptScore} · 시대 {m.periodScore}
                       </span>
                     </li>
@@ -191,7 +191,7 @@ export function DossierModal({
               </section>
             )}
 
-            <footer className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            <footer className="flex flex-wrap items-center gap-2 text-xs text-ink-3">
               <span>모델 {data.modelVersion}</span>
               <span>코퍼스 {data.corpusVersion}</span>
               <RightsBadge state={data.rightsState} />

@@ -126,7 +126,7 @@ function PatchScene({
 
   return (
     <>
-      <color attach="background" args={["#151518"]} />
+      <color attach="background" args={["#e8e5de"]} />
       {mode === "RAKING" ? (
         <>
           <ambientLight intensity={0.1} />
@@ -243,7 +243,7 @@ export function SurfaceCompare({ setId }: { setId: string }) {
   return (
     <main className="flex min-h-screen flex-col p-3 sm:p-4">
       <header className="mb-2 flex flex-wrap items-center gap-2">
-        <Link href={`/sets/${setId}`} className="text-sm text-neutral-400 hover:text-[var(--accent)]">
+        <Link href={`/sets/${setId}`} className="text-sm text-ink-2 hover:text-[var(--accent)]">
           ← 워크스페이스
         </Link>
         <h1 className="text-lg font-semibold">Surface Compare (3D 표면 패치)</h1>
@@ -272,12 +272,12 @@ export function SurfaceCompare({ setId }: { setId: string }) {
         </span>
       </header>
       {cellIds.length < 2 && (
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-ink-2">
           비교할 문자 셀 2개가 필요합니다 (Glyph Matrix에서 "표면 비교"로 진입).
         </p>
       )}
       {webgl === false && (
-        <p className="text-sm text-amber-300" data-testid="webgl-fallback">
+        <p className="text-sm text-[var(--state-warning)]" data-testid="webgl-fallback">
           WebGL 불가 — 표면 비교는 3D 환경이 필요합니다.
         </p>
       )}
@@ -287,11 +287,11 @@ export function SurfaceCompare({ setId }: { setId: string }) {
             <section key={p.cellId} className="panel flex min-h-[420px] flex-col overflow-hidden">
               <header className="flex items-center gap-2 border-b border-[var(--panel-border)] px-2 py-1 text-xs">
                 <strong>{p.cellId}</strong>
-                {"tabTitle" in p && <span className="text-neutral-500">{p.tabTitle}</span>}
+                {"tabTitle" in p && <span className="text-ink-3">{p.tabTitle}</span>}
                 <span className="badge badge-demo ml-auto">가상</span>
               </header>
               {"error" in p ? (
-                <p className="p-4 text-xs text-neutral-500">{p.error}</p>
+                <p className="p-4 text-xs text-ink-3">{p.error}</p>
               ) : (
                 <div className="min-h-0 flex-1">
                   <Canvas frameloop="demand" dpr={[1, 1.5]} gl={{ powerPreference: "low-power" }}>
@@ -310,7 +310,7 @@ export function SurfaceCompare({ setId }: { setId: string }) {
             </section>
           ))}
       </div>
-      <p className="mt-2 text-[11px] text-neutral-500">
+      <p className="mt-2 text-[11px] text-ink-3">
         스케일 정규화: 두 패치는 각자 셀 크기 기준으로 정규화되어 표시됩니다. 좌표계·단위가
         확정되지 않아 절대 깊이 차이는 계산하지 않습니다 (형태 비교 전용).
       </p>

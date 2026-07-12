@@ -7,6 +7,7 @@ import type { GlyphCell, SteleAsset, TabUiState } from "@seokmun/types";
 import { makeSurfaceField } from "@seokmun/engine";
 import { DemoBadge } from "@/components/badges";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
+import { useStageMode } from "@/lib/store";
 import {
   buildClientSlab,
   glCounter,
@@ -60,7 +61,7 @@ function SelectedOutline({ width, height }: { width: number; height: number }) {
   useEffect(() => () => edges.dispose(), [edges]);
   return (
     <lineSegments geometry={edges}>
-      <lineBasicMaterial color="#d3a95f" />
+      <lineBasicMaterial color="#9f5b3f" />
     </lineSegments>
   );
 }
@@ -208,7 +209,7 @@ function SteleMeshLayer({
               <meshBasicMaterial
                 transparent
                 opacity={selected && visible ? 0.08 : 0.001}
-                color={selected ? "#d3a95f" : "#ffffff"}
+                color={selected ? "#9f5b3f" : "#ffffff"}
                 depthWrite={false}
               />
             </mesh>
@@ -235,7 +236,7 @@ function SvgFallback({
 }) {
   return (
     <div className="p-4" data-testid="webgl-fallback">
-      <p className="mb-2 text-xs text-neutral-400">
+      <p className="mb-2 text-xs text-ink-2">
         WebGL을 사용할 수 없어 2D 이미지 폴백으로 표시합니다. (측정 3D 아님)
       </p>
       <div className="flex flex-wrap gap-2">
@@ -245,7 +246,7 @@ function SvgFallback({
           </button>
         ))}
       </div>
-      {demoLabel && <p className="mt-2 text-xs text-amber-300">{demoLabel}</p>}
+      {demoLabel && <p className="mt-2 text-xs text-[var(--state-warning)]">{demoLabel}</p>}
     </div>
   );
 }
@@ -289,6 +290,7 @@ export function Viewer3D({
 }) {
   const [webgl, setWebgl] = useState<boolean | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const exhibition = useStageMode((s) => s.mode) === "EXHIBITION";
   const [meshInfo, setMeshInfo] = useState({ triangles: 0, vertices: 0, gpuBytes: 0 });
   const [patchStatus, setPatchStatus] = useState<{
     loading: boolean;
@@ -383,7 +385,7 @@ export function Viewer3D({
   }, [asset.id, uiState.camera, lightingPreset, exposure, aoStrength]);
 
   if (webgl === null) {
-    return <div className="p-6 text-sm text-neutral-400">3D 뷰어 준비 중…</div>;
+    return <div className="p-6 text-sm text-ink-2">3D 뷰어 준비 중…</div>;
   }
   if (!webgl) {
     return (
@@ -400,9 +402,46 @@ export function Viewer3D({
 
   return (
     <div className="relative flex h-full min-h-[320px] flex-col" data-testid="viewer-3d">
-      {/* 툴바 */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-[#191920] px-2 py-1 text-[11px]">
-        <span className="text-neutral-500">표현</span>
+      {/* 툴바 — 전시 보기에서는 관람에 필요한 조명·카메라만 남긴다.
+          모드 전환은 표시 계층만 바꾸며 카메라·선택·탭 상태를 건드리지 않는다. */}
+      {exhibition ? (
+        <div
+          className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]"
+          data-testid="exhibition-toolbar"
+        >
+          <span className="text-ink-3">조명</span>
+          {(["MUSEUM_NEUTRAL", "FIELD_DAYLIGHT", "RAKING"] as const).map((key) => (
+            <button
+              key={key}
+              data-testid={`light-${key}`}
+              aria-pressed={lightingPreset === key}
+              onClick={() => onUiStateChange({ lightingPreset: key, renderMode: renderMode })}
+              className={`badge ${lightingPreset === key ? "badge-demo" : "badge-neutral"}`}
+              title={LIGHTING_PRESETS[key].note}
+            >
+              {LIGHTING_PRESETS[key].label}
+            </button>
+          ))}
+          <span className="ml-2 text-ink-3">카메라</span>
+          {CAMERA_MODES.map(([key, label]) => (
+            <button
+              key={key}
+              data-testid={`cam-${key}`}
+              aria-pressed={cameraMode === key}
+              onClick={() => onUiStateChange({ cameraMode: key })}
+              className={`badge ${cameraMode === key ? "badge-demo" : "badge-neutral"}`}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="ml-auto text-ink-3">
+            표시 설정 전용 — 측정·판독 기준은 연구 보기
+          </span>
+        </div>
+      ) : (
+      <>
+      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]">
+        <span className="text-ink-3">표현</span>
         {REPRESENTATIONS.map(([key, label]) => (
           <button
             key={key}
@@ -414,7 +453,7 @@ export function Viewer3D({
             {label}
           </button>
         ))}
-        <span className="ml-2 text-neutral-500">조명</span>
+        <span className="ml-2 text-ink-3">조명</span>
         {(Object.keys(LIGHTING_PRESETS) as Array<keyof typeof LIGHTING_PRESETS>).map((key) => (
           <button
             key={key}
@@ -427,7 +466,7 @@ export function Viewer3D({
             {LIGHTING_PRESETS[key].label}
           </button>
         ))}
-        <span className="ml-2 text-neutral-500">분석</span>
+        <span className="ml-2 text-ink-3">분석</span>
         {ANALYSIS_MODES.map(([key, label]) => (
           <button
             key={key}
@@ -440,8 +479,8 @@ export function Viewer3D({
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--panel-border)] bg-[#191920] px-2 py-1 text-[11px]">
-        <span className="text-neutral-500">카메라</span>
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]">
+        <span className="text-ink-3">카메라</span>
         {CAMERA_MODES.map(([key, label]) => (
           <button
             key={key}
@@ -454,7 +493,7 @@ export function Viewer3D({
           </button>
         ))}
         <label className="ml-1 flex items-center gap-1">
-          <span className="text-neutral-500">품질</span>
+          <span className="text-ink-3">품질</span>
           <select
             value={uiState.qualityTier ?? "AUTO"}
             onChange={(e) => onUiStateChange({ qualityTier: e.target.value as TabUiState["qualityTier"] })}
@@ -469,7 +508,7 @@ export function Viewer3D({
           </select>
         </label>
         <label className="flex items-center gap-1">
-          <span className="text-neutral-500">LOD</span>
+          <span className="text-ink-3">LOD</span>
           <select
             value={uiState.lodLevel}
             onChange={(e) => onUiStateChange({ lodLevel: e.target.value as TabUiState["lodLevel"] })}
@@ -482,7 +521,7 @@ export function Viewer3D({
           </select>
         </label>
         <label className="flex items-center gap-1" title="노출 (톤매핑 ACES)">
-          <span className="text-neutral-500">노출</span>
+          <span className="text-ink-3">노출</span>
           <input
             type="range" min={0.4} max={2} step={0.05} value={exposure}
             onChange={(e) => changeNumber({ exposure: Number(e.target.value) })}
@@ -491,7 +530,7 @@ export function Viewer3D({
           <span className="tabular-nums">{exposure.toFixed(2)}</span>
         </label>
         <label className="flex items-center gap-1" title="음영(cavity) 강도 — 과장 방지 위해 수치 표시">
-          <span className="text-neutral-500">AO</span>
+          <span className="text-ink-3">AO</span>
           <input
             type="range" min={0} max={1.2} step={0.05} value={aoStrength}
             onChange={(e) => changeNumber({ aoStrength: Number(e.target.value) })}
@@ -502,7 +541,7 @@ export function Viewer3D({
         {rakingActive && (
           <>
             <label className="flex items-center gap-1">
-              <span className="text-neutral-500">방위각</span>
+              <span className="text-ink-3">방위각</span>
               <input
                 type="range" min={0} max={360} step={5} value={azimuth}
                 onChange={(e) => changeNumber({ lightAzimuthDeg: Number(e.target.value) })}
@@ -511,7 +550,7 @@ export function Viewer3D({
               <span className="tabular-nums">{azimuth}°</span>
             </label>
             <label className="flex items-center gap-1">
-              <span className="text-neutral-500">고도</span>
+              <span className="text-ink-3">고도</span>
               <input
                 type="range" min={2} max={60} step={2} value={elevation}
                 onChange={(e) => changeNumber({ lightElevationDeg: Number(e.target.value) })}
@@ -532,6 +571,8 @@ export function Viewer3D({
           기준 렌더 저장
         </button>
       </div>
+      </>
+      )}
 
       <div ref={canvasWrapRef} className="relative min-h-0 flex-1">
         <Canvas
@@ -625,7 +666,7 @@ export function Viewer3D({
         {/* 범례 + 축척 */}
         <div className="pointer-events-none absolute bottom-2 left-2 flex flex-col gap-1 text-[10px]">
           {(renderMode === "CURVATURE" || renderMode === "DEPTH") && (
-            <div className="rounded bg-black/60 px-2 py-1">
+            <div className="rounded bg-[var(--surface-elevated)] px-2 py-1 shadow-[var(--shadow-xs)]">
               <div
                 className="h-2 w-28 rounded"
                 style={{
@@ -635,7 +676,7 @@ export function Viewer3D({
                       : "linear-gradient(90deg,#40e5e5,#e58a40)",
                 }}
               />
-              <p className="mt-0.5 text-neutral-300">
+              <p className="mt-0.5 text-ink-2">
                 {renderMode === "DEPTH" ? "얕음 → 깊음" : "평면 → 홈"} · 가상 단위 (실측 아님)
               </p>
             </div>

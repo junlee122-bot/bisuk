@@ -48,17 +48,17 @@ export default function FrontierPage() {
   return (
     <main className="mx-auto max-w-4xl p-4 sm:p-8">
       <header className="mb-6 flex flex-wrap items-center gap-3">
-        <Link href="/" className="text-sm text-neutral-400 hover:text-[var(--accent)]">
+        <Link href="/" className="text-sm text-ink-2 hover:text-[var(--accent)]">
           ← 대시보드
         </Link>
         <h1 className="text-xl font-bold">Frontier Watch</h1>
-        <p className="w-full text-sm text-neutral-400">
+        <p className="w-full text-sm text-ink-2">
           새 발견을 정답 코퍼스로 넣지 않고, 자료 성숙도와 출처 상태를 추적하는 관찰
           목록입니다.
         </p>
       </header>
       {message && (
-        <p className="panel mb-4 p-3 text-sm text-emerald-300" data-testid="frontier-message">
+        <p className="panel mb-4 p-3 text-sm text-[var(--state-success)]" data-testid="frontier-message">
           {message}
         </p>
       )}
@@ -77,19 +77,19 @@ export default function FrontierPage() {
                 </span>
               )}
             </div>
-            <dl className="mt-2 grid gap-1 text-xs text-neutral-400 sm:grid-cols-2">
+            <dl className="mt-2 grid gap-1 text-xs text-ink-2 sm:grid-cols-2">
               <div>
-                <dt className="inline text-neutral-500">발견/발표: </dt>
+                <dt className="inline text-ink-3">발견/발표: </dt>
                 <dd className="inline">
                   {item.discoveryDate ?? "?"} / {item.announcementDate ?? "?"}
                 </dd>
               </div>
               <div>
-                <dt className="inline text-neutral-500">보고 기관: </dt>
+                <dt className="inline text-ink-3">보고 기관: </dt>
                 <dd className="inline">{item.reportingInstitution}</dd>
               </div>
               <div>
-                <dt className="inline text-neutral-500">자료 확보: </dt>
+                <dt className="inline text-ink-3">자료 확보: </dt>
                 <dd className="inline" data-testid={`watch-assets-${item.id}`}>
                   {item.assetAvailability.length > 0
                     ? item.assetAvailability.join(", ")
@@ -97,16 +97,16 @@ export default function FrontierPage() {
                 </dd>
               </div>
               <div>
-                <dt className="inline text-neutral-500">다음 예상 이벤트: </dt>
+                <dt className="inline text-ink-3">다음 예상 이벤트: </dt>
                 <dd className="inline">{item.nextExpectedEvent}</dd>
               </div>
             </dl>
             {item.preliminaryClaims.length > 0 && (
               <section className="mt-2">
-                <h3 className="text-xs font-semibold text-amber-200">
+                <h3 className="text-xs font-semibold text-[var(--state-warning)]">
                   1차 판독 주장 <span className="badge badge-warn">확정 아님</span>
                 </h3>
-                <ul className="mt-1 list-inside list-disc text-xs text-neutral-300">
+                <ul className="mt-1 list-inside list-disc text-xs text-ink-2">
                   {item.preliminaryClaims.map((c) => (
                     <li key={c}>{c}</li>
                   ))}
@@ -139,7 +139,7 @@ export default function FrontierPage() {
                   메타데이터 탭으로 승격
                 </button>
               )}
-              <span className="text-neutral-500">
+              <span className="text-ink-3">
                 마지막 확인 {item.lastCheckedAt ?? "—"}
               </span>
             </div>

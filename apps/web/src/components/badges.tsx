@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReadingStatus, RightsState, TabRole } from "@seokmun/types";
+import { rightsLabel } from "@/lib/labels";
 
 export const ROLE_ICON: Record<TabRole, string> = {
   PRIMARY: "P",
@@ -57,10 +58,11 @@ export function RightsBadge({ state }: { state: RightsState }) {
   return (
     <span
       className={`badge ${uncleared ? "badge-rights" : "badge-ok"}`}
-      title="자산 권리 상태"
+      title={`자산 권리 상태 — ${state}`}
     >
       {uncleared ? "⚠ " : "✓ "}
-      {state}
+      {rightsLabel(state)}
+      <span className="opacity-70">({state})</span>
     </span>
   );
 }

@@ -52,7 +52,7 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-3"
       role="dialog"
       aria-modal="true"
       aria-label="내보내기"
@@ -101,12 +101,12 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
           ))}
         </div>
         {message && (
-          <p className="mt-3 text-xs text-neutral-300" data-testid="export-message">
+          <p className="mt-3 text-xs text-ink-2" data-testid="export-message">
             {message}
           </p>
         )}
         {blocked && (
-          <ul className="mt-2 space-y-1 text-xs text-red-300" data-testid="export-blocked">
+          <ul className="mt-2 space-y-1 text-xs text-[var(--state-danger)]" data-testid="export-blocked">
             {blocked.map((b, i) => (
               <li key={i}>
                 ⚠ {b.filename ?? "자산"} — {b.rightsState}

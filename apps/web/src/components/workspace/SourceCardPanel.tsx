@@ -90,7 +90,7 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
     <div className="space-y-3 overflow-y-auto p-3" data-testid="source-card-panel">
       <section className="panel p-3">
         <h3 className="text-sm font-semibold">공식 Source Card</h3>
-        <p className="mt-0.5 text-xs text-neutral-500">
+        <p className="mt-0.5 text-xs text-ink-3">
           앱은 원본 파일을 자동 수집하지 않습니다. 공식 출처의 이용 조건을 확인한 뒤
           직접 내려받은 파일만 등록하세요.
         </p>
@@ -104,16 +104,16 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
                 <span className="badge badge-neutral">신뢰 계층 {s.reliabilityTier}</span>
               </div>
               {s.expectedFormats.length > 0 && (
-                <p className="mt-1 text-neutral-400">
+                <p className="mt-1 text-ink-2">
                   공식 형식: {s.expectedFormats.join(", ")}
                 </p>
               )}
-              <p className="mt-1 text-neutral-500">{s.notes}</p>
+              <p className="mt-1 text-ink-3">{s.notes}</p>
               <a
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-block break-all text-[11px] text-sky-300 underline decoration-dotted"
+                className="mt-1 inline-block break-all text-[11px] text-[var(--state-info)] underline decoration-dotted"
               >
                 {s.url}
               </a>
@@ -133,11 +133,11 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
               </span>
             )}
           </h3>
-          <p className="mt-0.5 text-[11px] text-neutral-500">{maturity.note}</p>
+          <p className="mt-0.5 text-[11px] text-ink-3">{maturity.note}</p>
           <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] sm:grid-cols-3">
             {Object.entries(maturity.scores).map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-2 rounded bg-[#26262e] px-2 py-1">
-                <span className="text-neutral-400">{k.replace("Score", "")}</span>
+              <div key={k} className="flex justify-between gap-2 rounded bg-surface-2 px-2 py-1">
+                <span className="text-ink-2">{k.replace("Score", "")}</span>
                 <span className="tabular-nums">{v}</span>
               </div>
             ))}
@@ -148,9 +148,9 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
       {canImport && (
         <section className="panel p-3" data-testid="importer">
           <h3 className="text-sm font-semibold">3D 파일 수동 등록 (PLY·STL·ASC)</h3>
-          <p className="mt-0.5 text-xs text-neutral-500">
+          <p className="mt-0.5 text-xs text-ink-3">
             등록 즉시 체크섬·품질 보고서가 생성되며, 공공누리 유형 확인 전에는{" "}
-            <span className="text-red-300">권리 확인 필요</span> 상태로 외부 공개
+            <span className="text-[var(--state-danger)]">권리 확인 필요</span> 상태로 외부 공개
             내보내기가 차단됩니다.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -177,7 +177,7 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
               {uploadMutation.isPending ? "등록 중…" : "원본 보존 등록"}
             </button>
           </div>
-          {uploadError && <p className="mt-1 text-xs text-red-400">{uploadError}</p>}
+          {uploadError && <p className="mt-1 text-xs text-[var(--state-danger)]">{uploadError}</p>}
         </section>
       )}
 
@@ -199,12 +199,12 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
                 )}
               </div>
               {a.checksumSha256 && (
-                <p className="mt-1 break-all text-[10px] text-neutral-500">
+                <p className="mt-1 break-all text-[10px] text-ink-3">
                   sha256 {a.checksumSha256}
                 </p>
               )}
               {a.qualityReport && (
-                <div className="mt-1 text-neutral-400">
+                <div className="mt-1 text-ink-2">
                   <span className="mr-2">형식 {a.qualityReport.format}</span>
                   {a.qualityReport.vertexCount !== null && (
                     <span className="mr-2">정점 {a.qualityReport.vertexCount}</span>
@@ -219,7 +219,7 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
                     <span className="mr-2">단위 {a.qualityReport.unitGuess}</span>
                   )}
                   {a.qualityReport.warnings.map((w) => (
-                    <p key={w} className="text-amber-300">
+                    <p key={w} className="text-[var(--state-warning)]">
                       ⚠ {w}
                     </p>
                   ))}
@@ -231,7 +231,7 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
             </li>
           ))}
           {detail.assets.length === 0 && (
-            <li className="text-xs text-neutral-500">등록된 자산 없음</li>
+            <li className="text-xs text-ink-3">등록된 자산 없음</li>
           )}
         </ul>
       </section>

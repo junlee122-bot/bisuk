@@ -46,30 +46,31 @@ export function GlyphPatchSvg({
       role="img"
       aria-label={`문자 셀 ${cell.id} (가상 데모 자형)`}
       style={{
-        background: "#26262e",
+        background: "#f4efe4",
         borderRadius: 6,
-        border: selected ? "2px solid var(--accent)" : "1px solid #3a3a44",
+        border: selected ? "2px solid var(--accent-clay)" : "1px solid var(--line-soft)",
       }}
     >
-      <rect x="0" y="0" width="100" height="100" fill="#2b2b33" rx="6" />
+      {/* 종이 위 먹 — 관측 획은 진한 먹, 마모 획은 옅은 점선 유령획 */}
+      <rect x="0" y="0" width="100" height="100" fill="#efe9db" rx="6" />
       {cell.damageGrade >= 3 && (
-        <rect x="0" y="0" width="100" height="100" fill="#1c1c22" opacity="0.5" rx="6" />
+        <rect x="0" y="0" width="100" height="100" fill="#ddd3bf" opacity="0.55" rx="6" />
       )}
       {erodedPath && (
         <path
           d={erodedPath}
-          stroke="#6d6152"
+          stroke="#a3987f"
           strokeWidth="4"
           strokeDasharray="5 6"
           fill="none"
           strokeLinecap="round"
-          opacity="0.55"
+          opacity="0.75"
         />
       )}
       {observedPath && (
         <path
           d={observedPath}
-          stroke="#e8e0d0"
+          stroke="#2b2721"
           strokeWidth="6"
           fill="none"
           strokeLinecap="round"

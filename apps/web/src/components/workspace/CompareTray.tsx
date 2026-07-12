@@ -19,11 +19,11 @@ export function CompareTray({ overview }: { overview: SetOverview }) {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-t border-[var(--panel-border)] bg-[#1a1a20] px-3 py-2 text-xs"
+      className="flex flex-wrap items-center gap-2 border-t border-[var(--panel-border)] bg-surface px-3 py-2 text-xs"
       data-testid="compare-tray"
       aria-label="비교 트레이"
     >
-      <span className="font-semibold text-neutral-400">비교 트레이</span>
+      <span className="font-semibold text-ink-2">비교 트레이</span>
       {tray.cellIds.map((id) => (
         <span key={id} className="badge badge-neutral">
           {id}
@@ -32,7 +32,7 @@ export function CompareTray({ overview }: { overview: SetOverview }) {
           </button>
         </span>
       ))}
-      <span className="ml-2 text-neutral-500">비교 탭:</span>
+      <span className="ml-2 text-ink-3">비교 탭:</span>
       {overview.tabs.map(({ tab }) => (
         <label key={tab.id} className="flex items-center gap-1">
           <input

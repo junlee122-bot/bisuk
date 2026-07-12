@@ -66,7 +66,7 @@ export function FragmentViewer({
   });
 
   if (fragments.length < 2) {
-    return <p className="p-4 text-sm text-neutral-400">가상 조각 자산이 없습니다.</p>;
+    return <p className="p-4 text-sm text-ink-2">가상 조각 자산이 없습니다.</p>;
   }
   const pA = fragments[0]!.meshParams as unknown as MeshParams;
   const pB = fragments[1]!.meshParams as unknown as MeshParams;
@@ -83,7 +83,7 @@ export function FragmentViewer({
       <div className="relative min-h-[280px] flex-1">
         {webgl ? (
           <Canvas frameloop="demand" camera={{ position: [0.7, 0.2, 1.6], fov: 45 }}>
-            <color attach="background" args={["#111114"]} />
+            <color attach="background" args={["#e8e5de"]} />
             <ambientLight intensity={0.5} />
             <directionalLight position={[2, 3, 4]} intensity={1.3} />
             {/* 조각 1(위, 파단면 아래) / 조각 2(아래, 파단면 위) */}
@@ -93,7 +93,7 @@ export function FragmentViewer({
           </Canvas>
         ) : (
           webgl === false && (
-            <p className="p-4 text-xs text-neutral-400" data-testid="webgl-fallback">
+            <p className="p-4 text-xs text-ink-2" data-testid="webgl-fallback">
               WebGL 불가 — 조각 패치를 2D로 표시합니다.
             </p>
           )
@@ -104,7 +104,7 @@ export function FragmentViewer({
       </div>
       <div className="panel m-2 space-y-2 p-3" aria-label="접합 시뮬레이션">
         <div className="flex items-center gap-3">
-          <label htmlFor="join-slider" className="text-xs text-neutral-400">
+          <label htmlFor="join-slider" className="text-xs text-ink-2">
             접합 간격
           </label>
           <input
@@ -126,17 +126,17 @@ export function FragmentViewer({
             data-testid="join-result"
           >
             <div className="panel p-2">
-              <dt className="text-neutral-500">평균 간극</dt>
+              <dt className="text-ink-3">평균 간극</dt>
               <dd className="font-medium">{join.meanGap}</dd>
             </div>
             <div className="panel p-2">
-              <dt className="text-neutral-500">간섭 비율</dt>
+              <dt className="text-ink-3">간섭 비율</dt>
               <dd className="font-medium">{join.interferenceRatio}</dd>
             </div>
             <div className="panel p-2">
-              <dt className="text-neutral-500">접합 신뢰도</dt>
+              <dt className="text-ink-3">접합 신뢰도</dt>
               <dd
-                className={`font-semibold ${join.joinConfidence > 0.8 ? "text-emerald-300" : "text-amber-300"}`}
+                className={`font-semibold ${join.joinConfidence > 0.8 ? "text-[var(--state-success)]" : "text-[var(--state-warning)]"}`}
                 data-testid="join-confidence"
               >
                 {join.joinConfidence}
@@ -144,12 +144,12 @@ export function FragmentViewer({
             </div>
           </dl>
         )}
-        <p className="text-[11px] text-neutral-500">{join?.note}</p>
+        <p className="text-[11px] text-ink-3">{join?.note}</p>
       </div>
       <div className="m-2 grid grid-cols-2 gap-2">
         {[...byFace.entries()].map(([faceId, faceCells]) => (
           <section key={faceId} className="panel p-2">
-            <h4 className="mb-1 text-xs text-neutral-400">{faceId}</h4>
+            <h4 className="mb-1 text-xs text-ink-2">{faceId}</h4>
             <div className="flex flex-wrap gap-1.5">
               {faceCells.map((c) => (
                 <button key={c.id} onClick={() => onSelect(c.id)} aria-label={`문자 셀 ${c.id}`}>
