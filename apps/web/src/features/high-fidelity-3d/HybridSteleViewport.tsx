@@ -16,13 +16,28 @@ import {
 } from "./geometryClient";
 import { detectQualityTier, LIGHTING_PRESETS, QUALITY_TIERS, RESEARCH_STAGE } from "./presets";
 import { PresentationStage } from "./PresentationStage";
-import { SteleCameraRig } from "./SteleCameraRig";
+import { SteleCameraRig, type FlyToRequest } from "./SteleCameraRig";
 import { SteleLightingRig, type ToneMappingChoice } from "./SteleLightingRig";
+import { LENS_SIZE, lensCenter, MagnifierLens, type MagnifierState } from "./MagnifierLens";
+import { ScreenshotComposer } from "./ScreenshotComposer";
+import { BOOKMARK_LABEL, BOOKMARK_ORDER, bookmarkPose, type BookmarkName } from "./cameraBookmarks";
 import { GlyphDetailPatchLayer } from "./GlyphDetailPatchLayer";
 import { SplatLayer } from "./SplatLayer";
 import { ThreeDQualityPanel } from "./ThreeDQualityPanel";
 
 type RenderMode = TabUiState["renderMode"];
+
+/** 단발성 캡처 브리지 — 요청 시 1회 렌더 직후 픽셀 확보 (preserveDrawingBuffer 불필요) */
+function CaptureBridge({ onReady }: { onReady: (fn: () => string) => void }) {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    onReady(() => {
+      gl.render(scene, camera);
+      return gl.domElement.toDataURL("image/png");
+    });
+  }, [gl, scene, camera, onReady]);
+  return null;
+}
 
 /** 렌더 통계 수집 — 품질 패널·E2E 검증용 */
 function StatsBridge({ gpuBytesEstimate }: { gpuBytesEstimate: number }) {
@@ -176,7 +191,7 @@ function SteleMeshLayer({
   const isResearch = representation === "RESEARCH_EVIDENCE";
   return (
     <group>
-      <mesh geometry={built.geometry} visible={visible} castShadow receiveShadow>
+      <mesh geometry={built.geometry} visible={visible} castShadow receiveShadow userData={{ evidenceMesh: true }}>
         {renderMode === "NORMAL" ? (
           <meshNormalMaterial />
         ) : renderMode === "CURVATURE" || renderMode === "DEPTH" ? (
@@ -204,6 +219,13 @@ function SteleMeshLayer({
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect(cell.id);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = "";
               }}
             >
               <planeGeometry args={[bw * params.width, bh * params.height]} />
@@ -374,10 +396,54 @@ export function Viewer3D({
   const showSplat = representation === "SPLAT" || representation === "POINT_CLOUD";
   const meshVisible = !showSplat;
 
+  // 단발성 캡처 경로 (CaptureBridge가 채움) — preserveDrawingBuffer 상시 활성 금지
+  const captureFnRef = useRef<(() => string) | null>(null);
+  const onCaptureReady = useCallback((fn: () => string) => {
+    captureFnRef.current = fn;
+  }, []);
+  const [composerOpen, setComposerOpen] = useState(false);
+
+  // 프레젠테이션 카메라 북마크 (1–5 키)
+  const [flyTo, setFlyTo] = useState<FlyToRequest | null>(null);
+  const flySeq = useRef(0);
+  const goBookmark = useCallback(
+    (name: BookmarkName) => {
+      const pose = bookmarkPose(name, params, cells, selectedId);
+      flySeq.current += 1;
+      setFlyTo({ ...pose, duration: 0.7, seq: flySeq.current });
+    },
+    [params, cells, selectedId]
+  );
+
+  // 확대경 (M 키, 2×/4×/8×)
+  const [magnifier, setMagnifier] = useState<MagnifierState>({
+    active: false,
+    zoom: 2,
+    x: 200,
+    y: 200,
+  });
+  const cycleZoom = useCallback(() => {
+    setMagnifier((m) => ({ ...m, zoom: m.zoom === 2 ? 4 : m.zoom === 4 ? 8 : 2 }));
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && ["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName)) return;
+      if (e.key >= "1" && e.key <= "5") {
+        const name = BOOKMARK_ORDER[Number(e.key) - 1];
+        if (name) goBookmark(name);
+      } else if (e.key === "m" || e.key === "M") {
+        setMagnifier((m) => ({ ...m, active: !m.active }));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [goBookmark]);
+
   const captureReference = useCallback(async () => {
-    const canvas = canvasWrapRef.current?.querySelector("canvas");
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
+    const dataUrl = captureFnRef.current?.();
+    if (!dataUrl) return;
     await fetch("/api/3d/reference-renders", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -586,21 +652,69 @@ export function Viewer3D({
       </>
       )}
 
+      {/* 관찰 도구 행 — 카메라 북마크(1–5) · 확대경(M) · 촬영 (양 모드 공통) */}
+      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface px-2 py-1 text-[11px]">
+        <span className="text-ink-3">북마크</span>
+        {BOOKMARK_ORDER.map((name, i) => (
+          <button
+            key={name}
+            data-testid={`bookmark-${name}`}
+            onClick={() => goBookmark(name)}
+            className="badge badge-neutral"
+            title={`${BOOKMARK_LABEL[name]} (${i + 1} 키)`}
+          >
+            {i + 1} {BOOKMARK_LABEL[name]}
+          </button>
+        ))}
+        <span className="ml-2 text-ink-3">확대경</span>
+        <button
+          data-testid="magnifier-toggle"
+          aria-pressed={magnifier.active}
+          onClick={() => setMagnifier((m) => ({ ...m, active: !m.active }))}
+          className={`badge ${magnifier.active ? "badge-demo" : "badge-neutral"}`}
+          title="확대경 켜기/끄기 (M 키) — Evidence Mesh 기준"
+        >
+          M
+        </button>
+        {magnifier.active && (
+          <button
+            data-testid="magnifier-zoom"
+            onClick={cycleZoom}
+            className="badge badge-neutral"
+            title="배율 전환 2×/4×/8×"
+          >
+            {magnifier.zoom}×
+          </button>
+        )}
+        <button
+          data-testid="screenshot-composer-open"
+          onClick={() => setComposerOpen((v) => !v)}
+          className={`badge ml-auto ${composerOpen ? "badge-demo" : "badge-neutral"}`}
+        >
+          촬영
+        </button>
+      </div>
+
       <div
         ref={canvasWrapRef}
-        className="relative min-h-0 flex-1"
+        className="relative min-h-0 flex-1 cursor-grab active:cursor-grabbing"
         data-testid="stele-stage"
         style={{
           // CSS cyclorama — 캔버스는 투명, 무대 배경은 표시 계층 (검은 배경 금지)
           background: `linear-gradient(180deg, ${stageColors.top} 0%, ${stageColors.bottom} 100%)`,
           transition: "background 240ms ease",
         }}
+        onPointerMove={(e) => {
+          if (!magnifier.active || !canvasWrapRef.current) return;
+          const rect = canvasWrapRef.current.getBoundingClientRect();
+          setMagnifier((m) => ({ ...m, x: e.clientX - rect.left, y: e.clientY - rect.top }));
+        }}
       >
         <Canvas
           frameloop="demand"
           shadows={tierConfig.shadowMapSize > 0}
           dpr={tierConfig.dpr}
-          gl={{ powerPreference: "low-power", antialias: true, alpha: true, preserveDrawingBuffer: true }}
+          gl={{ powerPreference: "low-power", antialias: true, alpha: true }}
         >
           <SteleLightingRig
             preset={lightingPreset}
@@ -620,7 +734,10 @@ export function Viewer3D({
             selectedId={selectedId}
             uiState={uiState}
             onCameraChange={(camera) => onUiStateChange({ camera })}
+            flyTo={flyTo}
           />
+          <CaptureBridge onReady={onCaptureReady} />
+          {magnifier.active && <MagnifierLens state={magnifier} />}
           <SteleMeshLayer
             params={params}
             cells={cells}
@@ -706,6 +823,44 @@ export function Viewer3D({
           )}
           <span className="badge badge-neutral">상대 크기 · 가상 단위 — mm 환산 없음</span>
         </div>
+        {/* 확대경 링 오버레이 — 렌즈 렌더 영역 표시 + LOD·패치 상태 */}
+        {magnifier.active && canvasWrapRef.current && (() => {
+          const rect = canvasWrapRef.current.getBoundingClientRect();
+          const { cx, cy } = lensCenter(magnifier, rect.width, rect.height);
+          return (
+            <div
+              className="pointer-events-none absolute z-10"
+              data-testid="magnifier-ring"
+              style={{ left: cx - LENS_SIZE / 2, top: cy - LENS_SIZE / 2, width: LENS_SIZE, height: LENS_SIZE }}
+            >
+              <div className="h-full w-full rounded-lg border-2 border-clay shadow-[var(--shadow-sm)]" />
+              <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] shadow-[var(--shadow-xs)]">
+                {magnifier.zoom}× · Evidence 기준 · LOD{" "}
+                {uiState.lodLevel === "FULL" ? "최대" : uiState.lodLevel === "MEDIUM" ? "중간" : "미리보기"}
+                {patchStatus.loaded.length > 0 ? ` · 패치 ${patchStatus.loaded.length}` : ""}
+              </span>
+            </div>
+          );
+        })()}
+        {composerOpen && (
+          <ScreenshotComposer
+            onClose={() => setComposerOpen(false)}
+            captureRaw={() => captureFnRef.current?.() ?? ""}
+            stage={stageColors}
+            meta={{
+              steleName: asset.demoLabel ?? asset.id,
+              assetId: asset.id,
+              lod: uiState.lodLevel,
+              representation,
+              lightingPreset,
+              renderMode,
+              toneMapping: toneMappingChoice,
+              measurementAllowed: representation === "RESEARCH_EVIDENCE",
+              source: "VIRTUAL_DEMO — 실제 유물 3D 아님",
+              camera: uiState.camera ?? null,
+            }}
+          />
+        )}
         {panelOpen && (
           <ThreeDQualityPanel
             asset={asset}

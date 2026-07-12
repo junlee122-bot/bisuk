@@ -20,6 +20,15 @@ type OrbitControlsImpl = {
  * 글자 포커스는 부드럽게 이동하되 사용자 조작 즉시 중단.
  * near/far는 장면 스케일(≈2m)에 맞춰 depth 정밀도를 낭비하지 않는다.
  */
+export interface FlyToRequest {
+  position: [number, number, number];
+  target: [number, number, number];
+  /** 전환 시간(초) — 스펙 §7.2: 0.5–0.9 */
+  duration?: number;
+  /** 동일 포즈 재요청 구분용 시퀀스 */
+  seq: number;
+}
+
 export function SteleCameraRig({
   mode,
   params,
@@ -27,6 +36,7 @@ export function SteleCameraRig({
   selectedId,
   uiState,
   onCameraChange,
+  flyTo,
 }: {
   mode: CameraMode;
   params: SlabParams;
@@ -34,6 +44,7 @@ export function SteleCameraRig({
   selectedId: string | null;
   uiState: TabUiState;
   onCameraChange: (camera: { position: [number, number, number]; target: [number, number, number] }) => void;
+  flyTo?: FlyToRequest | null;
 }) {
   const { invalidate } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -41,6 +52,7 @@ export function SteleCameraRig({
     fromPos: THREE.Vector3; toPos: THREE.Vector3;
     fromTarget: THREE.Vector3; toTarget: THREE.Vector3;
     t: number;
+    duration: number;
   } | null>(null);
 
   const ortho = mode === "ORTHOGRAPHIC_RESEARCH" || mode === "FRONT_ELEVATION";
@@ -66,9 +78,38 @@ export function SteleCameraRig({
       fromTarget: c.target.clone(),
       toTarget: new THREE.Vector3(cx, cy, cz),
       t: 0,
+      duration: 0.6,
     };
     invalidate();
   }, [mode, selectedId, cells, params, invalidate]);
+
+  // 프레젠테이션 북마크 flyTo — 500–900ms 감속, 사용자 입력 시 즉시 중단,
+  // prefers-reduced-motion에서는 즉시 이동
+  useEffect(() => {
+    if (!flyTo || !controlsRef.current) return;
+    const c = controlsRef.current;
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    if (reduced) {
+      c.object.position.set(...flyTo.position);
+      c.target.set(...flyTo.target);
+      c.update();
+      invalidate();
+      onCameraChange({ position: flyTo.position, target: flyTo.target });
+      return;
+    }
+    animRef.current = {
+      fromPos: c.object.position.clone(),
+      toPos: new THREE.Vector3(...flyTo.position),
+      fromTarget: c.target.clone(),
+      toTarget: new THREE.Vector3(...flyTo.target),
+      t: 0,
+      duration: Math.min(0.9, Math.max(0.5, flyTo.duration ?? 0.7)),
+    };
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyTo?.seq]);
 
   // 사용자 조작 시 포커스 애니메이션 즉시 중단
   useEffect(() => {
@@ -85,7 +126,7 @@ export function SteleCameraRig({
     const anim = animRef.current;
     const c = controlsRef.current;
     if (!anim || !c) return;
-    anim.t = Math.min(1, anim.t + delta / 0.6);
+    anim.t = Math.min(1, anim.t + delta / anim.duration);
     const e = 1 - Math.pow(1 - anim.t, 3);
     c.object.position.lerpVectors(anim.fromPos, anim.toPos, e);
     c.target.lerpVectors(anim.fromTarget, anim.toTarget, e);

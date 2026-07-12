@@ -138,5 +138,5 @@ export function SplatLayer({
   }, [material]);
 
   if (error || !geometry) return null;
-  return <points geometry={geometry} material={material} />;
+  return <points geometry={geometry} material={material} userData={{ splatLayer: true }} />;
 }
