@@ -42,6 +42,7 @@ import {
   type SeedPriors,
 } from "@seokmun/engine";
 import { dataDir, openDb, wipe, type Db } from "./db";
+import { registerThreeDRoutes } from "./threeD/routes";
 import { buildPipelineInput, runAndPersistAnalysis } from "./analysis";
 import { defaultUiState, isSeeded, seedAll } from "./seed";
 import {
@@ -1017,6 +1018,8 @@ export function buildServer(): FastifyInstance {
     auditEvents.record(ctx.db, "EVALUATION_RUN", "BenchmarkSuite", "demo", report.metrics);
     return report;
   });
+
+  registerThreeDRoutes(app, ctx.db);
 
   // ── 개발용 리셋 (E2E 결정성) ──
   app.post("/api/dev/reset", async (_req, reply) => {

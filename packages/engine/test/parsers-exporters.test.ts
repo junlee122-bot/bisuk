@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TabUiState } from "@seokmun/types";
 import type {
   GlyphCell,
   ResearchSet,
@@ -91,11 +92,7 @@ function makeExportInput() {
     periodEstimate: "", location: "", material: "", scriptType: "", writingDirection: "",
     rightsState: "VERIFY_PER_ASSET", sourceQuality: 0.5, questions: [], knownFacts: [],
     restrictions: [], preliminaryClaims: [], warnings: [], archived: false,
-    uiState: {
-      camera: null, activeFaceId: null, activeGlyphCellId: null, renderMode: "ALBEDO",
-      zoomLevel: 1, selectedCandidateId: null, literatureQuery: "", lodLevel: "MEDIUM",
-      lastSavedAt: null,
-    },
+    uiState: TabUiState.parse({}),
     createdAt: "2026-07-11T00:00:00Z", updatedAt: "2026-07-11T00:00:00Z",
   } as SteleTab;
   const glyphCells: GlyphCell[] = [

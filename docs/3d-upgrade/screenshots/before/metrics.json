@@ -1,0 +1,7 @@
+{
+  "desktopCanvasVisibleMs": 801,
+  "desktopFpsApprox": 58,
+  "mobileCanvasVisibleMs": 378,
+  "mobileFpsApprox": 59,
+  "note": "SwiftShader 소프트웨어 렌더링 기준 — 실제 GPU FPS 아님. rAF 유도 방식 근사치."
+}

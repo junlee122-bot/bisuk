@@ -1,0 +1,27 @@
+{
+  "name": "curvature-view",
+  "capturedAt": "2026-07-12",
+  "modelVersion": "procedural-demo-A (post-upgrade, seokmun-3d-pipeline-0.2.0)",
+  "toneMapping": "ACESFilmic",
+  "colorSpace": "sRGB",
+  "ui": {
+    "camera": {
+      "position": [
+        0.4,
+        0.1,
+        1.8
+      ],
+      "target": [
+        0,
+        0.2,
+        0
+      ]
+    },
+    "renderMode": "CURVATURE"
+  },
+  "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+  "dpr": 1,
+  "jsHeapMB": 30,
+  "stats": null
+}

@@ -10,3 +10,6 @@ export * from "./pipeline";
 export * from "./parsers";
 export * from "./exporters";
 export * from "./demoSeed";
+export * from "./heightfield";
+export * from "./meshBuild";
+export * from "./meshIngest";

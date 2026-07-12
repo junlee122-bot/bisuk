@@ -5,7 +5,7 @@ import type { TabUiState } from "@seokmun/types";
 import type { TabDetail } from "@/lib/api";
 import { DemoBadge, RightsBadge } from "@/components/badges";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
-import { Viewer3D } from "@/components/three/Viewer3D";
+import { Viewer3D } from "@/features/high-fidelity-3d/HybridSteleViewport";
 import { FragmentViewer } from "@/components/three/FragmentViewer";
 import { SourceCardPanel } from "./SourceCardPanel";
 

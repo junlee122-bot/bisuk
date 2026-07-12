@@ -1,0 +1,13 @@
+{
+  "desktopCanvasVisibleMs": 2451,
+  "mobileCanvasVisibleMs": 310,
+  "interactionStats": {
+    "fps": 7,
+    "drawCalls": 16,
+    "triangles": 12328,
+    "geometries": 18,
+    "textures": 2,
+    "gpuBytesEstimate": 451944
+  },
+  "note": "SwiftShader 소프트웨어 렌더링 — 실제 GPU FPS 아님. interactionStats.fps = 드래그 중 1초 실렌더 프레임 수."
+}

@@ -1,0 +1,25 @@
+{
+  "name": "front-full",
+  "capturedAt": "2026-07-12",
+  "modelVersion": "procedural-demo-A (pre-upgrade)",
+  "camera": {
+    "position": [
+      0,
+      0,
+      3.2
+    ],
+    "target": [
+      0,
+      0,
+      0
+    ]
+  },
+  "renderMode": "ALBEDO",
+  "lighting": "ambient 0.55 + dir [2,3,4] i=1.4 + dir [-2,-1,2] i=0.4",
+  "toneMapping": "three default (ACES? unset)",
+  "exposure": 1,
+  "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+  "dpr": 1,
+  "jsHeapMB": 20
+}

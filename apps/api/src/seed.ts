@@ -5,6 +5,9 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  TabUiState,
+} from "@seokmun/types";
 import type {
   CorpusDocument,
   FrontierWatchItem,
@@ -18,7 +21,6 @@ import type {
   TabRole,
   ResearchMaturityStatus,
   AssetMode,
-  TabUiState,
 } from "@seokmun/types";
 import {
   buildGlyphCellEntity,
@@ -152,17 +154,8 @@ interface FrontierSeed {
 }
 
 export function defaultUiState(): TabUiState {
-  return {
-    camera: null,
-    activeFaceId: null,
-    activeGlyphCellId: null,
-    renderMode: "ALBEDO",
-    zoomLevel: 1,
-    selectedCandidateId: null,
-    literatureQuery: "",
-    lodLevel: "MEDIUM",
-    lastSavedAt: null,
-  };
+  // zod 기본값으로 생성 — 3D 업그레이드 필드 포함 (스키마가 유일한 진실)
+  return TabUiState.parse({});
 }
 
 export function isSeeded(db: Db): boolean {

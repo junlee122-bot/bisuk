@@ -122,6 +122,22 @@ export function CompareScreen({ setId }: { setId: string }) {
                         >
                           근거 열기
                         </button>
+                        {(() => {
+                          const target = row.columns.find(
+                            (c) =>
+                              c.tab.id !== row.sourceGlyphCell.steleTabId &&
+                              c.cells[0]?.glyphCell
+                          )?.cells[0]?.glyphCell;
+                          return target ? (
+                            <Link
+                              href={`/sets/${setId}/surface-compare?cells=${row.sourceGlyphCell.id},${target.id}`}
+                              className="badge badge-neutral mt-1 ml-1"
+                              data-testid={`surface-compare-${row.sourceGlyphCell.id}`}
+                            >
+                              표면 비교(3D)
+                            </Link>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                   </td>

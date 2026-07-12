@@ -14,7 +14,7 @@ import {
   TabRole,
 } from "./enums";
 
-/** 탭별 UI 상태 — 새로고침 후 복원 대상 (PRD §0.3) */
+/** 탭별 UI 상태 — 새로고침 후 복원 대상 (PRD §0.3 + 3D 업그레이드 §11.1) */
 export const TabUiState = z.object({
   camera: z
     .object({
@@ -26,12 +26,30 @@ export const TabUiState = z.object({
   activeFaceId: z.string().nullable().default(null),
   activeGlyphCellId: z.string().nullable().default(null),
   renderMode: z
-    .enum(["ALBEDO", "RAKING_LIGHT", "NORMAL", "CURVATURE"])
+    .enum(["ALBEDO", "RAKING_LIGHT", "NORMAL", "CURVATURE", "DEPTH"])
     .default("ALBEDO"),
   zoomLevel: z.number().default(1),
   selectedCandidateId: z.string().nullable().default(null),
   literatureQuery: z.string().default(""),
   lodLevel: z.enum(["PREVIEW", "MEDIUM", "FULL"]).default("MEDIUM"),
+  // ── 3D 업그레이드 렌더 상태 ──
+  representation: z
+    .enum(["RESEARCH_EVIDENCE", "PBR_PRESENTATION", "UNLIT_ORIGINAL", "SPLAT", "POINT_CLOUD"])
+    .default("PBR_PRESENTATION"),
+  lightingPreset: z
+    .enum(["MUSEUM_NEUTRAL", "FIELD_DAYLIGHT", "LABORATORY_NEUTRAL", "RAKING", "SWEEP", "UNLIT_ALBEDO"])
+    .default("MUSEUM_NEUTRAL"),
+  lightAzimuthDeg: z.number().default(105),
+  lightElevationDeg: z.number().default(12),
+  exposure: z.number().default(1),
+  aoStrength: z.number().min(0).max(2).default(0.6),
+  cameraMode: z
+    .enum(["PERSPECTIVE_MUSEUM", "ORTHOGRAPHIC_RESEARCH", "FRONT_ELEVATION", "GLYPH_FOCUS"])
+    .default("PERSPECTIVE_MUSEUM"),
+  qualityTier: z
+    .enum(["AUTO", "ULTRA", "HIGH", "BALANCED", "MOBILE", "BATTERY_SAVER"])
+    .default("AUTO"),
+  activeVariantId: z.string().nullable().default(null),
   lastSavedAt: z.string().nullable().default(null),
 });
 export type TabUiState = z.infer<typeof TabUiState>;
