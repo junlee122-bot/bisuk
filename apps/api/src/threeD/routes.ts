@@ -2,7 +2,14 @@ import type { FastifyInstance } from "fastify";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { QUALITY_DISCLAIMERS, THREE_D_PIPELINE_VERSION } from "@seokmun/types";
+import {
+  CameraBookmark,
+  CameraBookmarkCreate,
+  QUALITY_DISCLAIMERS,
+  SceneLook,
+  SceneLookCreate,
+  THREE_D_PIPELINE_VERSION,
+} from "@seokmun/types";
 import { dataDir, type Db } from "../db";
 import { auditEvents, steleAssets, steleTabs } from "../repo";
 import { listAdapters, validateAdapter } from "./adapters";
@@ -12,7 +19,7 @@ import {
   qualityReportFor,
   runUpgradePipeline,
 } from "./pipeline";
-import { assetVariants, renderPresets, threeDJobs } from "./store";
+import { assetVariants, cameraBookmarks, renderPresets, sceneLooks, threeDJobs } from "./store";
 
 const MIME_BY_FORMAT: Record<string, string> = {
   GLB: "model/gltf-binary",
@@ -275,4 +282,93 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
   });
 
   app.get("/api/3d/disclaimers", async () => ({ disclaimers: QUALITY_DISCLAIMERS }));
+
+  // ── SceneLook CRUD (버전 관리·스크린샷 재현용, 표시 계층 전용) ──
+  app.get("/api/3d/scene-looks", async () => sceneLooks.list(db));
+
+  app.get("/api/3d/scene-looks/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const look = sceneLooks.get(db, id);
+    if (!look) return notFound(reply, "SceneLook");
+    return look;
+  });
+
+  app.post("/api/3d/scene-looks", async (req, reply) => {
+    const parsed = SceneLookCreate.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "VALIDATION", issues: parsed.error.issues });
+    }
+    const now = new Date().toISOString();
+    const look = SceneLook.parse({
+      ...parsed.data,
+      id: `look-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      builtIn: false,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
+    sceneLooks.put(db, look);
+    auditEvents.record(db, "SCENE_LOOK_CREATED", "SceneLook", look.id, { name: look.name });
+    return reply.status(201).send(look);
+  });
+
+  app.patch("/api/3d/scene-looks/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const existing = sceneLooks.get(db, id);
+    if (!existing) return notFound(reply, "SceneLook");
+    const parsed = SceneLookCreate.partial().safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "VALIDATION", issues: parsed.error.issues });
+    }
+    const updated = SceneLook.parse({
+      ...existing,
+      ...parsed.data,
+      id: existing.id,
+      builtIn: existing.builtIn,
+      version: existing.version + 1,
+      updatedAt: new Date().toISOString(),
+    });
+    sceneLooks.put(db, updated);
+    auditEvents.record(db, "SCENE_LOOK_UPDATED", "SceneLook", id, { version: updated.version });
+    return updated;
+  });
+
+  app.delete("/api/3d/scene-looks/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const existing = sceneLooks.get(db, id);
+    if (!existing) return notFound(reply, "SceneLook");
+    if (existing.builtIn) {
+      return reply
+        .status(409)
+        .send({ error: "BUILT_IN", message: "내장 SceneLook은 삭제할 수 없습니다" });
+    }
+    sceneLooks.delete(db, id);
+    auditEvents.record(db, "SCENE_LOOK_DELETED", "SceneLook", id, {});
+    return { ok: true };
+  });
+
+  // ── CameraBookmark CRUD ──
+  app.get("/api/3d/camera-bookmarks", async () => cameraBookmarks.list(db));
+
+  app.post("/api/3d/camera-bookmarks", async (req, reply) => {
+    const parsed = CameraBookmarkCreate.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "VALIDATION", issues: parsed.error.issues });
+    }
+    const bm = CameraBookmark.parse({
+      ...parsed.data,
+      id: `cambm-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      createdAt: new Date().toISOString(),
+    });
+    cameraBookmarks.put(db, bm);
+    auditEvents.record(db, "CAMERA_BOOKMARK_CREATED", "CameraBookmark", bm.id, { name: bm.name });
+    return reply.status(201).send(bm);
+  });
+
+  app.delete("/api/3d/camera-bookmarks/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!cameraBookmarks.get(db, id)) return notFound(reply, "CameraBookmark");
+    cameraBookmarks.delete(db, id);
+    return { ok: true };
+  });
 }

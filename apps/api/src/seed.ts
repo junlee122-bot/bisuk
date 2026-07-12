@@ -29,6 +29,7 @@ import {
   type SeedPriors,
 } from "@seokmun/engine";
 import type { Db } from "./db";
+import { seedSceneLooks } from "./threeD/store";
 import {
   benchmarkCases,
   documents,
@@ -163,6 +164,7 @@ export function isSeeded(db: Db): boolean {
 }
 
 export function seedAll(db: Db): void {
+  seedSceneLooks(db);
   const now = new Date().toISOString();
   const workspace = loadJson<WorkspaceSeed>("workspace.json");
   const glyphSeed = loadJson<GlyphSeed>("demo-glyphs.json");

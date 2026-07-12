@@ -58,10 +58,155 @@ export interface ParsedMesh {
   warnings: string[];
 }
 
-/** ASCII PLY 전체 파싱 (정점 xyz[,nx..][,rgb] + 삼각형/사각형 면) */
+/** PLY 스칼라 타입 → 바이트 크기 */
+const PLY_TYPE_SIZE: Record<string, number> = {
+  char: 1, int8: 1, uchar: 1, uint8: 1,
+  short: 2, int16: 2, ushort: 2, uint16: 2,
+  int: 4, int32: 4, uint: 4, uint32: 4,
+  float: 4, float32: 4,
+  double: 8, float64: 8,
+};
+
+function readPlyScalar(buf: Buffer, offset: number, type: string): number {
+  switch (type) {
+    case "char": case "int8": return buf.readInt8(offset);
+    case "uchar": case "uint8": return buf.readUInt8(offset);
+    case "short": case "int16": return buf.readInt16LE(offset);
+    case "ushort": case "uint16": return buf.readUInt16LE(offset);
+    case "int": case "int32": return buf.readInt32LE(offset);
+    case "uint": case "uint32": return buf.readUInt32LE(offset);
+    case "float": case "float32": return buf.readFloatLE(offset);
+    case "double": case "float64": return buf.readDoubleLE(offset);
+    default: return NaN;
+  }
+}
+
+/** binary_little_endian PLY 파싱 (P1 부채 해소 — big_endian은 지원하지 않고 null 반환) */
+function parseBinaryPlyToMesh(buf: Buffer): ParsedMesh | null {
+  const headText = buf.toString("latin1", 0, Math.min(buf.length, 8192));
+  const endIdx = headText.indexOf("end_header");
+  if (endIdx < 0) return null;
+  // end_header 라인 끝(개행 포함) 뒤부터 바이너리 본문
+  const bodyStart = headText.indexOf("\n", endIdx) + 1;
+  if (bodyStart <= 0) return null;
+  const header = headText.slice(0, endIdx);
+
+  // element 블록별 property 목록 수집
+  interface Prop { name: string; type: string; isList: boolean; countType?: string; itemType?: string }
+  const elements: Array<{ name: string; count: number; props: Prop[] }> = [];
+  for (const line of header.split(/\r?\n/)) {
+    const el = line.match(/^element\s+(\S+)\s+(\d+)/);
+    if (el) {
+      elements.push({ name: el[1]!, count: Number(el[2]), props: [] });
+      continue;
+    }
+    const list = line.match(/^property\s+list\s+(\S+)\s+(\S+)\s+(\S+)/);
+    if (list && elements.length) {
+      elements[elements.length - 1]!.props.push({
+        name: list[3]!, type: "list", isList: true, countType: list[1]!, itemType: list[2]!,
+      });
+      continue;
+    }
+    const scalar = line.match(/^property\s+(\S+)\s+(\S+)/);
+    if (scalar && elements.length) {
+      elements[elements.length - 1]!.props.push({ name: scalar[2]!, type: scalar[1]!, isList: false });
+    }
+  }
+  const vertexEl = elements.find((e) => e.name === "vertex");
+  if (!vertexEl) return null;
+
+  const warnings: string[] = [];
+  const positions = new Float32Array(vertexEl.count * 3);
+  const hasNormal = vertexEl.props.some((p) => p.name === "nx");
+  const hasColor = vertexEl.props.some((p) => p.name === "red");
+  const normalsRaw = hasNormal ? new Float32Array(vertexEl.count * 3) : null;
+  const colors = new Float32Array(vertexEl.count * 3).fill(0.62);
+  let triList: number[] = [];
+
+  let off = bodyStart;
+  try {
+    for (const el of elements) {
+      if (el.name === "vertex") {
+        for (let i = 0; i < el.count; i++) {
+          const values: Record<string, number> = {};
+          for (const p of el.props) {
+            if (p.isList) return null; // 정점에 list 속성 — 미지원
+            const size = PLY_TYPE_SIZE[p.type];
+            if (!size) return null;
+            values[p.name] = readPlyScalar(buf, off, p.type);
+            off += size;
+          }
+          positions[i * 3] = values.x ?? 0;
+          positions[i * 3 + 1] = values.y ?? 0;
+          positions[i * 3 + 2] = values.z ?? 0;
+          if (normalsRaw) {
+            normalsRaw[i * 3] = values.nx ?? 0;
+            normalsRaw[i * 3 + 1] = values.ny ?? 0;
+            normalsRaw[i * 3 + 2] = values.nz ?? 0;
+          }
+          if (hasColor) {
+            colors[i * 3] = (values.red ?? 158) / 255;
+            colors[i * 3 + 1] = (values.green ?? 158) / 255;
+            colors[i * 3 + 2] = (values.blue ?? 158) / 255;
+          }
+        }
+      } else if (el.name === "face") {
+        const listProp = el.props.find((p) => p.isList);
+        if (!listProp) return null;
+        const countSize = PLY_TYPE_SIZE[listProp.countType!]!;
+        const itemSize = PLY_TYPE_SIZE[listProp.itemType!]!;
+        for (let f = 0; f < el.count; f++) {
+          const n = readPlyScalar(buf, off, listProp.countType!);
+          off += countSize;
+          const idx: number[] = [];
+          for (let k = 0; k < n; k++) {
+            idx.push(readPlyScalar(buf, off, listProp.itemType!));
+            off += itemSize;
+          }
+          if (n === 3) triList.push(idx[0]!, idx[1]!, idx[2]!);
+          else if (n === 4) triList.push(idx[0]!, idx[1]!, idx[2]!, idx[0]!, idx[2]!, idx[3]!);
+        }
+      } else {
+        // 알 수 없는 element — list 없는 고정 크기만 건너뛸 수 있음
+        const rowSize = el.props.reduce((s, p) => s + (p.isList ? NaN : (PLY_TYPE_SIZE[p.type] ?? NaN)), 0);
+        if (Number.isNaN(rowSize)) return null;
+        off += rowSize * el.count;
+        warnings.push(`element ${el.name} ${el.count}개 건너뜀`);
+      }
+    }
+  } catch {
+    return null; // 버퍼 범위 초과 등 — 손상 파일
+  }
+
+  const indices = new Uint32Array(triList);
+  const hadNormals = Boolean(normalsRaw && normalsRaw.some((v) => v !== 0));
+  const normals = hadNormals ? normalsRaw! : computeVertexNormals(positions, indices);
+  if (!hadNormals) warnings.push("원본에 법선 없음 — 파생 메시에서 재계산됨");
+  if (triList.length === 0) warnings.push("면 정보 없음 — 점군으로 취급 권장");
+  return {
+    arrays: {
+      positions,
+      normals,
+      colors,
+      indices,
+      bounds: computeBounds(positions),
+      vertexCount: vertexEl.count,
+      triangleCount: indices.length / 3,
+    },
+    hadNormals,
+    hadColors: hasColor,
+    warnings,
+  };
+}
+
+/** PLY 전체 파싱 — ASCII 및 binary_little_endian (big_endian 미지원 → null) */
 export function parsePlyToMesh(buf: Buffer): ParsedMesh | null {
+  const head = buf.toString("latin1", 0, Math.min(buf.length, 256));
+  if (!head.startsWith("ply")) return null;
+  if (/format\s+binary_little_endian/.test(head)) return parseBinaryPlyToMesh(buf);
+  if (/format\s+binary_big_endian/.test(head)) return null;
   const text = buf.toString("latin1");
-  if (!text.startsWith("ply") || !/format\s+ascii/.test(text.slice(0, 200))) return null;
+  if (!/format\s+ascii/.test(text.slice(0, 200))) return null;
   const headerEnd = text.indexOf("end_header");
   if (headerEnd < 0) return null;
   const header = text.slice(0, headerEnd);

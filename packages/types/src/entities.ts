@@ -31,7 +31,7 @@ export const TabUiState = z.object({
   zoomLevel: z.number().default(1),
   selectedCandidateId: z.string().nullable().default(null),
   literatureQuery: z.string().default(""),
-  lodLevel: z.enum(["PREVIEW", "MEDIUM", "FULL"]).default("MEDIUM"),
+  lodLevel: z.enum(["PREVIEW", "MEDIUM", "FULL", "AUTO"]).default("MEDIUM"),
   // ── 3D 업그레이드 렌더 상태 ──
   representation: z
     .enum(["RESEARCH_EVIDENCE", "PBR_PRESENTATION", "UNLIT_ORIGINAL", "SPLAT", "POINT_CLOUD"])

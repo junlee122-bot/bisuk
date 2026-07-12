@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SeokmunRealDeviceResult",
+  "description": "실기기 성능 측정 결과 — docs/portfolio-polish/REAL_DEVICE_TEST_PLAN.md 절차로 생성",
+  "type": "object",
+  "required": ["device", "gpu", "os", "browser", "viewport", "qualityTier", "scenarios", "loading", "measuredAt"],
+  "properties": {
+    "device": { "type": "string", "minLength": 1 },
+    "gpu": { "type": "string", "minLength": 1 },
+    "os": { "type": "string" },
+    "browser": { "type": "string" },
+    "viewport": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "qualityTier": { "enum": ["ULTRA", "HIGH", "BALANCED", "MOBILE", "BATTERY_SAVER"] },
+    "scenarios": {
+      "type": "object",
+      "required": ["S1", "S2", "S3", "S4", "S5", "S6"],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^S[1-6]$": {
+          "type": "object",
+          "required": ["fps"],
+          "properties": {
+            "fps": { "type": "number", "minimum": 0 },
+            "drawCalls": { "type": "integer", "minimum": 0 },
+            "triangles": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "loading": {
+      "type": "object",
+      "required": ["coldCanvasMs", "warmCanvasMs", "interactiveMs"],
+      "properties": {
+        "coldCanvasMs": { "type": "number", "minimum": 0 },
+        "warmCanvasMs": { "type": "number", "minimum": 0 },
+        "interactiveMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "properties": {
+        "jsHeapMB": { "type": "number", "minimum": 0 },
+        "gpuGeometryMB": { "type": "number", "minimum": 0 }
+      }
+    },
+    "measuredAt": { "type": "string", "format": "date-time" },
+    "notes": { "type": "string" }
+  }
+}

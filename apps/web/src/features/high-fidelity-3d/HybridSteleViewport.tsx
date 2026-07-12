@@ -3,8 +3,10 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import type { GlyphCell, SteleAsset, TabUiState } from "@seokmun/types";
-import { makeSurfaceField } from "@seokmun/engine";
+import { useQuery } from "@tanstack/react-query";
+import type { GlyphCell, SceneLook, SteleAsset, TabUiState } from "@seokmun/types";
+import { chooseLodLevel, makeSurfaceField, type LodLevel } from "@seokmun/engine";
+import { resolveRenderer } from "./rendererFlag";
 import { DemoBadge } from "@/components/badges";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { useStageMode } from "@/lib/store";
@@ -26,6 +28,36 @@ import { SplatLayer } from "./SplatLayer";
 import { ThreeDQualityPanel } from "./ThreeDQualityPanel";
 
 type RenderMode = TabUiState["renderMode"];
+
+/** 자동 LOD — 화면 공간 크기 + 히스테리시스 (엔진 순수 함수 사용) */
+function AutoLodBridge({
+  modelHeight,
+  glyphFocused,
+  current,
+  onChange,
+}: {
+  modelHeight: number;
+  glyphFocused: boolean;
+  current: LodLevel;
+  onChange: (lod: LodLevel) => void;
+}) {
+  const { camera, size } = useThree();
+  useFrame(() => {
+    const persp = (camera as THREE.PerspectiveCamera).isPerspectiveCamera;
+    const next = chooseLodLevel({
+      currentLod: current,
+      projection: persp ? "perspective" : "orthographic",
+      distance: camera.position.length(),
+      fovDeg: persp ? (camera as THREE.PerspectiveCamera).fov : 32,
+      viewportHeightPx: size.height,
+      modelHeight,
+      orthoZoom: persp ? undefined : (camera as THREE.OrthographicCamera).zoom,
+      glyphFocused,
+    });
+    if (next !== current) onChange(next);
+  });
+  return null;
+}
 
 /** 단발성 캡처 브리지 — 요청 시 1회 렌더 직후 픽셀 확보 (preserveDrawingBuffer 불필요) */
 function CaptureBridge({ onReady }: { onReady: (fn: () => string) => void }) {
@@ -320,12 +352,40 @@ export function Viewer3D({
   const [webgl, setWebgl] = useState<boolean | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const exhibition = useStageMode((s) => s.mode) === "EXHIBITION";
-  // 톤매핑 — 기본 ACES, 룩 개발 A/B는 ?toneMapping=AGX|NEUTRAL 쿼리로 비교
-  const [toneMappingChoice] = useState<ToneMappingChoice>(() => {
+  // 톤매핑 — 기본 ACES, 룩 개발 A/B는 ?toneMapping=AGX|NEUTRAL 쿼리, SceneLook 적용 시 변경
+  const [toneMappingChoice, setToneMappingChoice] = useState<ToneMappingChoice>(() => {
     if (typeof window === "undefined") return "ACES";
     const q = new URLSearchParams(window.location.search).get("toneMapping");
     return q === "AGX" || q === "NEUTRAL" || q === "ACES" ? q : "ACES";
   });
+  // 자동 LOD (히스테리시스) — lodLevel=AUTO일 때 화면 공간 크기로 결정
+  const [autoLod, setAutoLod] = useState<LodLevel>("MEDIUM");
+  // 렌더러 플래그 (NEXT_PUBLIC_3D_RENDERER) — WebGPU는 정직한 UNAVAILABLE 보고
+  const renderer = useMemo(() => resolveRenderer(), []);
+  // SceneLook 프리셋 (내장 6종 + 사용자 정의)
+  const { data: sceneLookList } = useQuery({
+    queryKey: ["scene-looks"],
+    queryFn: async () => {
+      const res = await fetch("/api/3d/scene-looks");
+      if (!res.ok) throw new Error("scene-looks fetch failed");
+      return (await res.json()) as SceneLook[];
+    },
+    staleTime: 60_000,
+  });
+  const applySceneLook = useCallback(
+    (look: SceneLook) => {
+      setToneMappingChoice(look.toneMapping);
+      onUiStateChange({
+        lightingPreset: look.lightingPreset,
+        representation: look.representation,
+        exposure: look.exposure,
+        aoStrength: look.aoStrength,
+        lightAzimuthDeg: look.lightAzimuthDeg,
+        lightElevationDeg: look.lightElevationDeg,
+      });
+    },
+    [onUiStateChange]
+  );
   const [meshInfo, setMeshInfo] = useState({ triangles: 0, vertices: 0, gpuBytes: 0 });
   const [patchStatus, setPatchStatus] = useState<{
     loading: boolean;
@@ -401,6 +461,9 @@ export function Viewer3D({
 
   const showSplat = representation === "SPLAT" || representation === "POINT_CLOUD";
   const meshVisible = !showSplat;
+
+  // AUTO면 화면 공간 기준 자동값, 아니면 사용자 지정 LOD
+  const effectiveLod: LodLevel = uiState.lodLevel === "AUTO" ? autoLod : uiState.lodLevel;
 
   // 단발성 캡처 경로 (CaptureBridge가 채움) — preserveDrawingBuffer 상시 활성 금지
   const captureFnRef = useRef<(() => string) | null>(null);
@@ -604,10 +667,30 @@ export function Viewer3D({
             onChange={(e) => onUiStateChange({ lodLevel: e.target.value as TabUiState["lodLevel"] })}
             className="badge badge-neutral bg-[var(--panel-bg)]"
             aria-label="LOD 선택"
+            data-testid="lod-select"
           >
+            <option value="AUTO">자동 ({effectiveLod === "FULL" ? "최대" : effectiveLod === "MEDIUM" ? "중간" : "미리보기"})</option>
             <option value="PREVIEW">미리보기</option>
             <option value="MEDIUM">중간</option>
             <option value="FULL">최대</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-1" title="SceneLook — 조명·톤매핑·표현 프리셋 (표시 전용)">
+          <span className="text-ink-3">룩</span>
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const look = sceneLookList?.find((l) => l.id === e.target.value);
+              if (look) applySceneLook(look);
+            }}
+            className="badge badge-neutral bg-[var(--panel-bg)]"
+            aria-label="SceneLook 프리셋"
+            data-testid="scene-look-select"
+          >
+            <option value="">선택…</option>
+            {(sceneLookList ?? []).map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
           </select>
         </label>
         <label className="flex items-center gap-1" title="노출 (톤매핑 ACES)">
@@ -750,11 +833,19 @@ export function Viewer3D({
             flyTo={flyTo}
           />
           <CaptureBridge onReady={onCaptureReady} />
+          {uiState.lodLevel === "AUTO" && (
+            <AutoLodBridge
+              modelHeight={params.height}
+              glyphFocused={cameraMode === "GLYPH_FOCUS" && Boolean(selectedId)}
+              current={autoLod}
+              onChange={setAutoLod}
+            />
+          )}
           {magnifier.active && <MagnifierLens state={magnifier} />}
           <SteleMeshLayer
             params={params}
             cells={cells}
-            lod={uiState.lodLevel}
+            lod={effectiveLod}
             renderMode={renderMode}
             representation={representation}
             aoStrength={aoStrength}
@@ -799,6 +890,11 @@ export function Viewer3D({
           )}
           {representation === "PBR_PRESENTATION" && (
             <span className="badge badge-neutral">표현 보강(PBR) — 판독 기준은 연구형</span>
+          )}
+          {renderer.note && (
+            <span className="badge badge-warn" data-testid="renderer-status">
+              {renderer.note}
+            </span>
           )}
         </div>
         <div className="pointer-events-none absolute right-2 top-2 flex flex-col items-end gap-1 text-[10px]">
@@ -849,7 +945,7 @@ export function Viewer3D({
               <div className="h-full w-full rounded-lg border-2 border-clay shadow-[var(--shadow-sm)]" />
               <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] shadow-[var(--shadow-xs)]">
                 {magnifier.zoom}× · Evidence 기준 · LOD{" "}
-                {uiState.lodLevel === "FULL" ? "최대" : uiState.lodLevel === "MEDIUM" ? "중간" : "미리보기"}
+                {effectiveLod === "FULL" ? "최대" : effectiveLod === "MEDIUM" ? "중간" : "미리보기"}
                 {patchStatus.loaded.length > 0 ? ` · 패치 ${patchStatus.loaded.length}` : ""}
               </span>
             </div>
@@ -863,7 +959,7 @@ export function Viewer3D({
             meta={{
               steleName: asset.demoLabel ?? asset.id,
               assetId: asset.id,
-              lod: uiState.lodLevel,
+              lod: effectiveLod,
               representation,
               lightingPreset,
               renderMode,
@@ -878,7 +974,7 @@ export function Viewer3D({
           <ThreeDQualityPanel
             asset={asset}
             representation={representation}
-            lod={uiState.lodLevel}
+            lod={effectiveLod}
             tier={tier}
             meshInfo={meshInfo}
             onClose={() => setPanelOpen(false)}

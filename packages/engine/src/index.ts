@@ -13,3 +13,4 @@ export * from "./demoSeed";
 export * from "./heightfield";
 export * from "./meshBuild";
 export * from "./meshIngest";
+export * from "./autoLod";

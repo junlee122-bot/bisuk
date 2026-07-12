@@ -19,10 +19,12 @@ export function meshArraysToGeometry(arrays: MeshArrays): THREE.BufferGeometry {
   return geometry;
 }
 
+// AUTO는 뷰포트에서 실효 LOD로 해석된 뒤 전달된다 — 방어적으로 MEDIUM 격자 매핑
 const LOD_GRIDS: Record<TabUiState["lodLevel"], [number, number]> = {
   PREVIEW: [24, 64],
   MEDIUM: [48, 128],
   FULL: [144, 384],
+  AUTO: [48, 128],
 };
 
 export interface ClientSlabBuild {

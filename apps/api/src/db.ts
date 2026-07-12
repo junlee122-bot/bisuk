@@ -34,6 +34,8 @@ const TABLES = [
   `CREATE TABLE IF NOT EXISTS asset_variants (id TEXT PRIMARY KEY, stele_asset_id TEXT NOT NULL, data TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS three_d_jobs (id TEXT PRIMARY KEY, stele_asset_id TEXT NOT NULL, data TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS render_presets (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS scene_looks (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS camera_bookmarks (id TEXT PRIMARY KEY, data TEXT NOT NULL)`,
   `CREATE INDEX IF NOT EXISTS idx_variants_asset ON asset_variants(stele_asset_id)`,
   `CREATE INDEX IF NOT EXISTS idx_3djobs_asset ON three_d_jobs(stele_asset_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tabs_set ON stele_tabs(research_set_id)`,
@@ -54,7 +56,7 @@ export function wipe(db: Db): void {
     "research_sets", "stele_tabs", "source_records", "stele_assets", "documents",
     "glyph_cells", "hypotheses", "evidence", "cross_matches", "comparisons",
     "frontier_items", "benchmark_cases", "audit_events",
-    "asset_variants", "three_d_jobs", "render_presets",
+    "asset_variants", "three_d_jobs", "render_presets", "scene_looks", "camera_bookmarks",
   ];
   for (const t of tables) db.exec(`DELETE FROM ${t}`);
 }
