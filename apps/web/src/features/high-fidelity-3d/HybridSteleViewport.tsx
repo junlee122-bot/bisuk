@@ -303,6 +303,8 @@ export function Viewer3D({
   selectedId,
   onSelect,
   onUiStateChange,
+  externalFlyTo,
+  onUserInteract,
 }: {
   asset: SteleAsset;
   cells: GlyphCell[];
@@ -310,6 +312,10 @@ export function Viewer3D({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onUiStateChange: (patch: Partial<TabUiState>) => void;
+  /** 외부(쇼케이스 가이드 등)에서 북마크 전환 요청 — seq 증가 시 적용 */
+  externalFlyTo?: { name: BookmarkName; seq: number } | null;
+  /** 사용자가 무대를 직접 조작하기 시작할 때 (가이드 일시정지용) */
+  onUserInteract?: () => void;
 }) {
   const [webgl, setWebgl] = useState<boolean | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -440,6 +446,12 @@ export function Viewer3D({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [goBookmark]);
+
+  // 외부 가이드(쇼케이스) 북마크 요청
+  useEffect(() => {
+    if (externalFlyTo) goBookmark(externalFlyTo.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalFlyTo?.seq]);
 
   const captureReference = useCallback(async () => {
     const dataUrl = captureFnRef.current?.();
@@ -709,6 +721,7 @@ export function Viewer3D({
           const rect = canvasWrapRef.current.getBoundingClientRect();
           setMagnifier((m) => ({ ...m, x: e.clientX - rect.left, y: e.clientY - rect.top }));
         }}
+        onPointerDown={() => onUserInteract?.()}
       >
         <Canvas
           frameloop="demand"
