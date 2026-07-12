@@ -1,0 +1,23 @@
+{
+  "name": "BEFORE_WORKSPACE_DEFAULT",
+  "phase": "BEFORE (다크 테마 · 포트폴리오 폴리시 이전)",
+  "capturedAt": "2026-07-12",
+  "model": "procedural-demo (VIRTUAL_DEMO, seokmun-3d-pipeline-0.2.0)",
+  "url": "http://localhost:3100/sets/early-korean-stelae-comparative?tab=chungju-goguryeobi",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "ui": {},
+  "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36",
+  "dpr": 1,
+  "bodyBg": "rgb(22, 22, 26)",
+  "stats": {
+    "fps": 0,
+    "drawCalls": 20,
+    "triangles": 12336,
+    "geometries": 21,
+    "textures": 2,
+    "gpuBytesEstimate": 451944
+  }
+}
