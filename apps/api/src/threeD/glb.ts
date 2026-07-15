@@ -1,7 +1,6 @@
 /** MeshArrays → GLB (KHR_mesh_quantization 양자화 압축) */
 import { Document, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
-import { quantize } from "@gltf-transform/functions";
 import type { MeshArrays } from "@seokmun/engine";
 
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
@@ -16,10 +15,19 @@ export async function meshArraysToGlb(
   const position = doc
     .createAccessor("POSITION")
     .setType("VEC3")
-    .setArray(arrays.positions);
-  const normal = doc.createAccessor("NORMAL").setType("VEC3").setArray(arrays.normals);
-  const color = doc.createAccessor("COLOR_0").setType("VEC3").setArray(arrays.colors);
-  const indices = doc.createAccessor("indices").setType("SCALAR").setArray(arrays.indices);
+    .setArray(Float32Array.from(arrays.positions));
+  const normal = doc
+    .createAccessor("NORMAL")
+    .setType("VEC3")
+    .setArray(Float32Array.from(arrays.normals));
+  const color = doc
+    .createAccessor("COLOR_0")
+    .setType("VEC3")
+    .setArray(Float32Array.from(arrays.colors));
+  const indices = doc
+    .createAccessor("indices")
+    .setType("SCALAR")
+    .setArray(Uint32Array.from(arrays.indices));
   const material = doc
     .createMaterial("stone")
     .setMetallicFactor(0)
@@ -37,6 +45,10 @@ export async function meshArraysToGlb(
   const node = doc.createNode(name).setMesh(mesh);
   doc.createScene(name).addChild(node);
   if (opts.quantized !== false) {
+    // The transform package loads optional image codecs (including sharp).
+    // Keep it out of the API startup path so lightweight endpoints such as
+    // /health do not require native image binaries to be initialized.
+    const { quantize } = await import("@gltf-transform/functions");
     await doc.transform(
       quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeColor: 8 })
     );

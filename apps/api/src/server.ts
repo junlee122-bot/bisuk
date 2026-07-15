@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import {
@@ -48,6 +48,7 @@ import {
   backfillSeedPresentationMetadata,
   defaultUiState,
   isSeeded,
+  loadSeedPriors,
   seedAll,
 } from "./seed";
 import {
@@ -114,11 +115,6 @@ interface Ctx {
   bm25: Bm25Index;
 }
 
-function loadPriors(): SeedPriors {
-  const seedPath = path.resolve(import.meta.dirname, "../../../data/seed/demo-glyphs.json");
-  return (JSON.parse(readFileSync(seedPath, "utf8")) as { priors: SeedPriors }).priors;
-}
-
 function buildSearchIndex(db: Db): Bm25Index {
   return new Bm25Index(
     documents.list(db).map((d) => ({
@@ -176,7 +172,7 @@ export function buildServer(): FastifyInstance {
   const db = openDb();
   if (!isSeeded(db)) seedAll(db);
   backfillSeedPresentationMetadata(db);
-  const ctx: Ctx = { db, priors: loadPriors(), bm25: buildSearchIndex(db) };
+  const ctx: Ctx = { db, priors: loadSeedPriors(), bm25: buildSearchIndex(db) };
 
   const app = Fastify({
     logger: false,
