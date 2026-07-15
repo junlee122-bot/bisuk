@@ -44,7 +44,12 @@ import {
 import { dataDir, openDb, wipe, type Db } from "./db";
 import { registerThreeDRoutes } from "./threeD/routes";
 import { buildPipelineInput, runAndPersistAnalysis } from "./analysis";
-import { defaultUiState, isSeeded, seedAll } from "./seed";
+import {
+  backfillSeedPresentationMetadata,
+  defaultUiState,
+  isSeeded,
+  seedAll,
+} from "./seed";
 import {
   auditEvents,
   benchmarkCases,
@@ -64,6 +69,22 @@ import {
 // P0 검사기가 실제로 해석 가능한 형식만 허용한다 (OBJ 변환은 P1)
 const ALLOWED_UPLOAD_EXT = new Set(["ply", "stl", "asc", "xyz"]);
 const UNRESOLVED = new Set(["UNKNOWN", "CONFLICTING", "PARTIALLY_OBSERVED", "ILLEGIBLE"]);
+const DEFAULT_CORS_ORIGINS = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:3100",
+  "http://127.0.0.1:3100",
+];
+const API_BODY_LIMIT_BYTES = 64 * 1024 * 1024;
+
+function corsAllowedOrigins(): string[] {
+  const configured = process.env.CORS_ALLOWED_ORIGINS;
+  if (configured === undefined) return DEFAULT_CORS_ORIGINS;
+  return configured
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
 
 let idCounter = 0;
 /** 밀리초 충돌로 인한 INSERT OR REPLACE 덮어쓰기를 막는 고유 ID */
@@ -154,13 +175,17 @@ function tabBadges(db: Db, tab: SteleTab) {
 export function buildServer(): FastifyInstance {
   const db = openDb();
   if (!isSeeded(db)) seedAll(db);
+  backfillSeedPresentationMetadata(db);
   const ctx: Ctx = { db, priors: loadPriors(), bm25: buildSearchIndex(db) };
 
   const app = Fastify({
     logger: false,
-    bodyLimit: 256 * 1024 * 1024,
+    bodyLimit: API_BODY_LIMIT_BYTES,
   });
-  void app.register(cors, { origin: true });
+  void app.register(cors, { origin: corsAllowedOrigins() });
+  app.addHook("onClose", async () => {
+    if (ctx.db.open) ctx.db.close();
+  });
 
   app.addContentTypeParser(
     "application/octet-stream",
@@ -410,11 +435,20 @@ export function buildServer(): FastifyInstance {
         message: `지원하지 않는 확장자(${ext}) — PLY/STL/ASC/XYZ 만 등록할 수 있습니다`,
       });
     }
-    if (query.sourceRecordId && !sourceRecords.get(ctx.db, query.sourceRecordId)) {
-      return reply.status(400).send({
-        error: "UNKNOWN_SOURCE_RECORD",
-        message: `출처 레코드(${query.sourceRecordId})가 존재하지 않습니다`,
-      });
+    if (query.sourceRecordId) {
+      const sourceRecord = sourceRecords.get(ctx.db, query.sourceRecordId);
+      if (!sourceRecord) {
+        return reply.status(400).send({
+          error: "UNKNOWN_SOURCE_RECORD",
+          message: `출처 레코드(${query.sourceRecordId})가 존재하지 않습니다`,
+        });
+      }
+      if (sourceRecord.steleTabId !== id) {
+        return reply.status(400).send({
+          error: "SOURCE_RECORD_TAB_MISMATCH",
+          message: `출처 레코드(${query.sourceRecordId})는 비석 탭(${id})의 출처가 아닙니다`,
+        });
+      }
     }
     const checksum = createHash("sha256").update(body).digest("hex");
     const assetId = newId("asset-upload");
@@ -1023,7 +1057,7 @@ export function buildServer(): FastifyInstance {
 
   // ── 개발용 리셋 (E2E 결정성) ──
   app.post("/api/dev/reset", async (_req, reply) => {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV !== "test" && process.env.ENABLE_DEV_RESET !== "true") {
       return reply.status(403).send({ error: "FORBIDDEN", message: "운영 환경에서는 사용 불가" });
     }
     wipe(ctx.db);

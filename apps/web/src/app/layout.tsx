@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={`${sansKr.variable} ${serifKr.variable}`}>
-      <body className="flex h-screen flex-col antialiased">
+      <body className="flex h-dvh min-h-screen flex-col antialiased">
         <Providers>
           <GlobalHeader />
           <div className="min-h-0 flex-1 overflow-auto">{children}</div>

@@ -2,9 +2,57 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SteleAsset } from "@seokmun/types";
+import type { AssetVariant, SteleAsset } from "@seokmun/types";
 import { api, type TabDetail } from "@/lib/api";
 import { DemoBadge, RightsBadge } from "@/components/badges";
+
+function presentationAssetUrl(asset: SteleAsset): string | null {
+  if (!asset.meshParams || typeof asset.meshParams !== "object") return null;
+  const url = asset.meshParams.presentationAssetUrl;
+  return typeof url === "string" && url.length > 0 ? url : null;
+}
+
+function MeshSourceBadges({ asset }: { asset: SteleAsset }) {
+  const { data: variants } = useQuery({
+    queryKey: ["3d-variants", asset.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/3d/assets/${asset.id}/variants`);
+      if (!response.ok) throw new Error(`3D variant 로딩 실패 (${response.status})`);
+      return (await response.json()) as AssetVariant[];
+    },
+    enabled: asset.assetType === "MESH",
+    staleTime: 30_000,
+  });
+
+  if (asset.assetType !== "MESH") return null;
+  const derivedGlbs =
+    variants?.filter((variant) => variant.format.toUpperCase() === "GLB" && !variant.glyphCellId) ??
+    [];
+  const presentationUrl = presentationAssetUrl(asset);
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1" data-testid={`mesh-sources-${asset.id}`}>
+      {presentationUrl && (
+        <span className="badge badge-neutral" title={presentationUrl}>
+          3D 소스 · Blender 프레젠테이션 GLB
+        </span>
+      )}
+      {derivedGlbs.length > 0 && (
+        <span className="badge badge-ok">서버 파생 GLB {derivedGlbs.length}종</span>
+      )}
+      {asset.provenance === "REAL_USER_UPLOAD" ? (
+        <span className="badge badge-neutral">
+          업로드 원본 · {asset.originalFilename ?? asset.format ?? asset.id}
+        </span>
+      ) : asset.meshParams ? (
+        <span className="badge badge-demo">클라이언트 절차 메시 폴백</span>
+      ) : null}
+      {asset.sourceRecordId && (
+        <span className="badge badge-neutral">Source Card · {asset.sourceRecordId}</span>
+      )}
+    </div>
+  );
+}
 
 function LicenseForm({ asset, onDone }: { asset: SteleAsset; onDone: () => void }) {
   const [licenseType, setLicenseType] = useState("KOGL_TYPE_1");
@@ -198,6 +246,7 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
                   <span className="badge badge-ok">라이선스 {a.licenseType}</span>
                 )}
               </div>
+              <MeshSourceBadges asset={a} />
               {a.checksumSha256 && (
                 <p className="mt-1 break-all text-[10px] text-ink-3">
                   sha256 {a.checksumSha256}

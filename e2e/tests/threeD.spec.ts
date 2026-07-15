@@ -1,4 +1,4 @@
-import { expect, resetDb, SET_URL, test } from "./fixtures";
+import { API_URL, expect, resetDb, SET_URL, test } from "./fixtures";
 
 test.describe("3D 업그레이드 — 하이브리드 뷰포트", () => {
   test.beforeEach(async ({ page }) => {
@@ -39,7 +39,7 @@ test.describe("3D 업그레이드 — 하이브리드 뷰포트", () => {
     await expect(page.getByTestId("patch-loaded")).toBeVisible({ timeout: 20_000 });
     // 서버에 GLYPH_DETAIL_PATCH variant가 생성됨 (스트리밍 경로)
     const variants = await (
-      await page.request.get("http://localhost:4100/api/3d/assets/asset-demo-a/variants")
+      await page.request.get(`${API_URL}/api/3d/assets/asset-demo-a/variants`)
     ).json();
     expect(
       variants.some(
@@ -132,7 +132,7 @@ test.describe("3D 업그레이드 — 하이브리드 뷰포트", () => {
 
   test("어댑터 레지스트리 API — 이 환경에선 전부 미가용으로 정직하게 보고", async ({ page }) => {
     const adapters = await (
-      await page.request.get("http://localhost:4100/api/3d/adapters")
+      await page.request.get(`${API_URL}/api/3d/adapters`)
     ).json();
     expect(adapters.length).toBeGreaterThanOrEqual(8);
     expect(adapters.every((a: { available: boolean }) => !a.available)).toBe(true);

@@ -107,7 +107,10 @@ export function SteleLightingRig({
   useFrame((_, delta) => {
     const anim = animRef.current;
     if (!anim.settled) {
-      const step = Math.min(1, delta / PRESET_LERP_S);
+      // 지수 보간은 긴 프레임에서도 계수가 1을 넘지 않아 발산하지 않는다.
+      // 기존 `step * 3`은 delta >= 160ms에서 오차를 키워 demand 렌더를 무한 반복했다.
+      const frameDelta = Math.min(Math.max(delta, 0), 0.1);
+      const alpha = 1 - Math.exp((-3 * frameDelta) / PRESET_LERP_S);
       const targets = {
         env: config.envIntensity,
         exposure: exposure * config.exposure,
@@ -116,7 +119,7 @@ export function SteleLightingRig({
       };
       let maxDiff = 0;
       for (const k of ["env", "exposure", "key", "rim"] as const) {
-        anim[k] += (targets[k] - anim[k]) * step * 3;
+        anim[k] += (targets[k] - anim[k]) * alpha;
         maxDiff = Math.max(maxDiff, Math.abs(targets[k] - anim[k]));
       }
       if (maxDiff < 0.004) {

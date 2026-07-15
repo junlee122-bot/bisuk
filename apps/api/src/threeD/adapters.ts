@@ -4,13 +4,44 @@
  * 정직하게 UNAVAILABLE 로 보고하고, 앱은 데모 파이프라인으로 전체 흐름이 동작한다.
  */
 import { spawnSync } from "node:child_process";
+import { accessSync, constants, statSync } from "node:fs";
+import path from "node:path";
 import type { AdapterStatus } from "@seokmun/types";
 
-function binaryAvailable(bin: string | undefined): boolean {
+const BINARY_PROBE_TIMEOUT_MS = 3_000;
+const BINARY_PROBE_MAX_OUTPUT_BYTES = 64 * 1024;
+
+export function matchesAdapterVersionOutput(output: string, versionPattern?: RegExp): boolean {
+  const normalized = output.trim();
+  if (!normalized) return false;
+  return versionPattern ? versionPattern.test(normalized) : true;
+}
+
+function probeBinary(bin: string, versionPattern?: RegExp): boolean {
+  const result = spawnSync(bin, ["--version"], {
+    encoding: "utf8",
+    maxBuffer: BINARY_PROBE_MAX_OUTPUT_BYTES,
+    shell: false,
+    timeout: BINARY_PROBE_TIMEOUT_MS,
+    windowsHide: true,
+  });
+  if (result.error || result.signal || result.status !== 0) return false;
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
+  return (
+    Buffer.byteLength(output, "utf8") <= BINARY_PROBE_MAX_OUTPUT_BYTES &&
+    matchesAdapterVersionOutput(output, versionPattern)
+  );
+}
+
+function binaryAvailable(bin: string | undefined, versionPattern?: RegExp): boolean {
   if (!bin) return false;
   try {
-    const r = spawnSync("which", [bin], { timeout: 3000 });
-    return r.status === 0;
+    if (path.isAbsolute(bin)) {
+      accessSync(bin, constants.X_OK);
+      if (!statSync(bin).isFile()) return false;
+      return probeBinary(bin, versionPattern);
+    }
+    return probeBinary(bin, versionPattern);
   } catch {
     return false;
   }
@@ -24,6 +55,7 @@ interface AdapterDef {
   gpuRequired: boolean;
   envEnabled: () => boolean;
   envBinary: () => string | undefined;
+  versionPattern?: RegExp;
   capabilities: Record<string, boolean>;
   licenseWarning: string | null;
 }
@@ -82,6 +114,7 @@ const DEFS: AdapterDef[] = [
     gpuRequired: false,
     envEnabled: () => true,
     envBinary: () => process.env.BLENDER_BIN ?? "blender",
+    versionPattern: /\bBlender\b/i,
     capabilities: { meshInput: true, textureGeneration: true, lodExport: true, headless: true },
     licenseWarning: "GPL-3.0 — 별도 프로세스 CLI 호출이므로 앱 라이선스에 비전염. 바이너리 재배포 금지.",
   },
@@ -148,7 +181,7 @@ export function listAdapters(): AdapterStatus[] {
     const enabled = d.envEnabled();
     const bin = d.envBinary();
     const available =
-      enabled && (d.apiMode === "REST" ? Boolean(process.env[`${d.id.toUpperCase().replace(/-/g, "_")}_API_TOKEN`]) : binaryAvailable(bin));
+      enabled && (d.apiMode === "REST" ? Boolean(process.env[`${d.id.toUpperCase().replace(/-/g, "_")}_API_TOKEN`]) : binaryAvailable(bin, d.versionPattern));
     return {
       id: d.id,
       displayName: d.displayName,

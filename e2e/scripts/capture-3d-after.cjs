@@ -2,10 +2,10 @@
 const { chromium } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
+const { WEB: BASE, API } = require("./runtime-env.cjs");
 
 const OUT = process.argv[2] || "/home/user/bisuk/docs/3d-upgrade/screenshots/after";
 const SET = "early-korean-stelae-comparative";
-const BASE = "http://localhost:3100";
 
 const CAMERAS = {
   "front-full": { position: [0, 0, 3.2], target: [0, 0, 0] },
@@ -14,7 +14,7 @@ const CAMERAS = {
 };
 
 async function setUi(page, ui) {
-  await page.request.post(`http://localhost:4100/api/stele-tabs/chungju-goguryeobi/ui-state`, {
+  await page.request.post(`${API}/api/stele-tabs/chungju-goguryeobi/ui-state`, {
     data: {
       qualityTier: "BALANCED", lodLevel: "MEDIUM", exposure: 1, aoStrength: 0.6,
       lightAzimuthDeg: 105, lightElevationDeg: 12, renderMode: "ALBEDO",
@@ -59,7 +59,7 @@ const SHOTS = [
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await page.request.post("http://localhost:4100/api/dev/reset");
+  await page.request.post(`${API}/api/dev/reset`, { timeout: 15_000 });
 
   const t0 = Date.now();
   await setUi(page, { camera: CAMERAS["front-full"] });

@@ -10,6 +10,60 @@ import { buildSlabMesh, type MeshArrays, type SlabParams } from "@seokmun/engine
 
 export type { SlabParams };
 
+type MeshBounds = {
+  min: [number, number, number];
+  max: [number, number, number];
+};
+
+function positiveFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/** 업로드 자산은 meshParams가 null일 수 있으므로 절차 메시 파라미터를 런타임 검증한다. */
+export function parseSlabParams(value: unknown): SlabParams | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<SlabParams>;
+  if (
+    !positiveFinite(candidate.width) ||
+    !positiveFinite(candidate.height) ||
+    !positiveFinite(candidate.depth)
+  ) {
+    return null;
+  }
+  return {
+    ...candidate,
+    width: candidate.width,
+    height: candidate.height,
+    depth: candidate.depth,
+    noiseSeed:
+      typeof candidate.noiseSeed === "number" && Number.isFinite(candidate.noiseSeed)
+        ? candidate.noiseSeed
+        : 0,
+    noiseAmp:
+      typeof candidate.noiseAmp === "number" && Number.isFinite(candidate.noiseAmp)
+        ? candidate.noiseAmp
+        : 0,
+  } as SlabParams;
+}
+
+/** GLB/원본 품질 보고서의 bounds를 카메라·무대용 크기로 변환한다. */
+export function slabParamsFromBounds(bounds: MeshBounds | null | undefined): SlabParams | null {
+  if (!bounds) return null;
+  const spans = bounds.max.map((max, index) => max - bounds.min[index]!) as [
+    number,
+    number,
+    number,
+  ];
+  if (!spans.every(positiveFinite)) return null;
+  return {
+    width: spans[0],
+    height: spans[1],
+    depth: spans[2],
+    noiseSeed: 0,
+    noiseAmp: 0,
+  };
+}
+
 export function meshArraysToGeometry(arrays: MeshArrays): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(arrays.positions, 3));
@@ -105,11 +159,21 @@ export function glCounter() {
   return window.__seokmunGl;
 }
 
+let cachedWebglSupport: boolean | undefined;
+
 export function webglSupported(): boolean {
+  if (cachedWebglSupport !== undefined) return cachedWebglSupport;
   try {
-    const c = document.createElement("canvas");
-    return Boolean(c.getContext("webgl2") ?? c.getContext("webgl"));
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    cachedWebglSupport = Boolean(context);
+    // 기능 검사만을 위해 만든 컨텍스트가 브라우저의 제한된 WebGL 슬롯을 점유하지 않게 즉시 반환한다.
+    context?.getExtension("WEBGL_lose_context")?.loseContext();
+    canvas.width = 1;
+    canvas.height = 1;
+    return cachedWebglSupport;
   } catch {
+    cachedWebglSupport = false;
     return false;
   }
 }

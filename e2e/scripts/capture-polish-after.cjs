@@ -3,13 +3,12 @@
 const { chromium } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
+const { WEB, API } = require("./runtime-env.cjs");
 
 const AFTER = "/home/user/bisuk/docs/portfolio-polish/screenshots/after";
 const PACK = "/home/user/bisuk/docs/portfolio-polish/screenshots/portfolio-pack";
 const BEFORE = "/home/user/bisuk/docs/portfolio-polish/screenshots/before";
 const SET = "early-korean-stelae-comparative";
-const WEB = "http://localhost:3100";
-const API = "http://localhost:4100";
 const WS = `${WEB}/sets/${SET}?tab=chungju-goguryeobi`;
 
 const CAM_DEFAULT = { position: [0.85, 0.1, 4.0], target: [0, 0, 0] };
@@ -71,7 +70,7 @@ async function waitCanvas(page, count = 1) {
   fs.mkdirSync(PACK, { recursive: true });
   const browser = await chromium.launch();
   const warm = await browser.newPage();
-  await warm.request.post(`${API}/api/dev/reset`);
+  await warm.request.post(`${API}/api/dev/reset`, { timeout: 15_000 });
   for (const u of [WS, `${WEB}/showcase/${SET}`]) await warm.goto(u).catch(() => {});
   await warm.close();
 
@@ -124,7 +123,7 @@ async function waitCanvas(page, count = 1) {
   await warmReset();
   async function warmReset() {
     const p = await browser.newPage();
-    await p.request.post(`${API}/api/dev/reset`);
+    await p.request.post(`${API}/api/dev/reset`, { timeout: 15_000 });
     await p.close();
   }
 

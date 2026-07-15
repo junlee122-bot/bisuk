@@ -84,10 +84,26 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as unknown) : null;
+  const contentType = res.headers.get("content-type") ?? "";
+  let json: unknown = null;
+  if (text && contentType.includes("application/json")) {
+    try {
+      json = JSON.parse(text) as unknown;
+    } catch {
+      throw new ApiRequestError(res.status || 502, "서버가 손상된 JSON 응답을 반환했습니다");
+    }
+  }
   if (!res.ok) {
     const err = json as { message?: string; details?: unknown } | null;
-    throw new ApiRequestError(res.status, err?.message ?? res.statusText, err?.details);
+    const fallback = text.trim().slice(0, 240);
+    throw new ApiRequestError(
+      res.status,
+      (err?.message ?? fallback) || res.statusText || "요청에 실패했습니다",
+      err?.details
+    );
+  }
+  if (text && !contentType.includes("application/json")) {
+    throw new ApiRequestError(502, "JSON 대신 예상하지 못한 서버 응답을 받았습니다");
   }
   return json as T;
 }

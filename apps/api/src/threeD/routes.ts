@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { isRedistributable } from "@seokmun/engine";
 import {
   CameraBookmark,
   CameraBookmarkCreate,
@@ -27,6 +28,20 @@ const MIME_BY_FORMAT: Record<string, string> = {
   SEOKMUN_SPLAT_BIN_V1: "application/octet-stream",
   PNG: "image/png",
 };
+
+function resolveStoredFile(storageKey: string): string | null {
+  try {
+    const root = realpathSync(dataDir());
+    const candidate = realpathSync(path.resolve(root, storageKey));
+    const relative = path.relative(root, candidate);
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      return null;
+    }
+    return candidate;
+  } catch {
+    return null;
+  }
+}
 
 export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
   const notFound = (reply: { status: (n: number) => { send: (b: unknown) => unknown } }, what: string) =>
@@ -108,11 +123,27 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
   app.get("/api/3d/variants/:variantId/file", async (req, reply) => {
     const { variantId } = req.params as { variantId: string };
     const variant = assetVariants.get(db, variantId);
-    if (!variant?.storageKey) return notFound(reply, "variant 파일");
-    const buf = readFileSync(path.join(dataDir(), variant.storageKey));
+    if (!variant) return notFound(reply, "variant file");
+    const asset = steleAssets.get(db, variant.steleAssetId);
+    if (!asset) return notFound(reply, "variant asset");
+    if (!isRedistributable(asset)) {
+      return reply
+        .header("cache-control", "no-store")
+        .header("x-content-type-options", "nosniff")
+        .status(403)
+        .send({
+          error: "RIGHTS_NOT_CLEARED",
+          message: "Asset redistribution rights must be cleared before serving this file",
+        });
+    }
+    if (!variant.storageKey) return notFound(reply, "variant file");
+    const storedFile = resolveStoredFile(variant.storageKey);
+    if (!storedFile) return notFound(reply, "variant file");
+    const buf = readFileSync(storedFile);
     return reply
       .header("content-type", MIME_BY_FORMAT[variant.format] ?? "application/octet-stream")
-      .header("cache-control", "public, max-age=3600, immutable")
+      .header("cache-control", "private, no-store")
+      .header("x-content-type-options", "nosniff")
       .send(buf);
   });
 

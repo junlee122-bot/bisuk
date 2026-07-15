@@ -163,6 +163,38 @@ export function isSeeded(db: Db): boolean {
   return researchSets.list(db).length > 0;
 }
 
+const PRESENTATION_METADATA_KEYS = [
+  "presentationAssetUrl",
+  "presentationAssetBounds",
+  "blenderAsset",
+] as const;
+
+/**
+ * 기존 DB의 가상 데모 자산에도 배포본 프레젠테이션 메타데이터를 보강한다.
+ * 전체 시드를 다시 쓰지 않으므로 사용자 UI 상태와 분석 결과는 그대로 보존된다.
+ */
+export function backfillSeedPresentationMetadata(db: Db): void {
+  const glyphSeed = loadJson<GlyphSeed>("demo-glyphs.json");
+  for (const seeded of glyphSeed.assets) {
+    if (!seeded.meshParams) continue;
+    const current = steleAssets.get(db, seeded.id);
+    if (!current || current.provenance !== "VIRTUAL_DEMO") continue;
+
+    const meshParams: Record<string, unknown> = {
+      ...(current.meshParams ?? {}),
+    };
+    let changed = false;
+    for (const key of PRESENTATION_METADATA_KEYS) {
+      const nextValue = seeded.meshParams[key];
+      if (nextValue === undefined) continue;
+      if (JSON.stringify(meshParams[key]) === JSON.stringify(nextValue)) continue;
+      meshParams[key] = nextValue;
+      changed = true;
+    }
+    if (changed) steleAssets.put(db, { ...current, meshParams });
+  }
+}
+
 export function seedAll(db: Db): void {
   seedSceneLooks(db);
   const now = new Date().toISOString();

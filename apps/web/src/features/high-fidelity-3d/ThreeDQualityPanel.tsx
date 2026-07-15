@@ -27,6 +27,9 @@ export function ThreeDQualityPanel({
   lod,
   tier,
   meshInfo,
+  measurementAllowed,
+  activeVariantId,
+  onActivateVariant,
   onClose,
 }: {
   asset: SteleAsset;
@@ -34,6 +37,9 @@ export function ThreeDQualityPanel({
   lod: TabUiState["lodLevel"];
   tier: string;
   meshInfo: { triangles: number; vertices: number; gpuBytes: number };
+  measurementAllowed: boolean;
+  activeVariantId: string | null;
+  onActivateVariant: (variant: AssetVariant) => void;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -54,7 +60,25 @@ export function ThreeDQualityPanel({
       if (!res.ok) throw new Error(`파이프라인 실패 (${res.status})`);
       return res.json();
     },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["3d-quality", asset.id] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["3d-quality", asset.id] });
+      void qc.invalidateQueries({ queryKey: ["3d-variants", asset.id] });
+    },
+  });
+
+  const activate = useMutation({
+    mutationFn: async (variant: AssetVariant) => {
+      const res = await fetch(`/api/3d/assets/${asset.id}/variants/${variant.id}/activate`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`variant 활성화 실패 (${res.status})`);
+      await res.json();
+      return variant;
+    },
+    onSuccess: (variant) => {
+      onActivateVariant(variant);
+      void qc.invalidateQueries({ queryKey: ["tab", asset.steleTabId] });
+    },
   });
 
   const meshVariants = report?.variants.filter((v) => v.format === "GLB") ?? [];
@@ -96,7 +120,7 @@ export function ThreeDQualityPanel({
         <dt className="text-ink-3">스케일 신뢰도</dt>
         <dd>{report?.scaleConfidence ?? "—"}</dd>
         <dt className="text-ink-3">측정 가능</dt>
-        <dd>{representation === "RESEARCH_EVIDENCE" ? "예 (가상 단위)" : "아니오 — 표시 전용"}</dd>
+        <dd>{measurementAllowed ? "예 (자산 단위)" : "아니오 — 표시 전용"}</dd>
         <dt className="text-ink-3">생성형 레이어</dt>
         <dd>미사용 (GENERATED_VISUAL_ONLY 없음)</dd>
         <dt className="text-ink-3">파이프라인</dt>
@@ -124,6 +148,7 @@ export function ThreeDQualityPanel({
               <li key={v.id} className="rounded bg-surface-2 p-1.5">
                 <div className="flex flex-wrap items-center gap-1">
                   <span className="badge badge-neutral">{v.variantType}</span>
+                  {activeVariantId === v.id && <span className="badge badge-ok">현재 활성</span>}
                   <span className={`badge ${v.measurementAllowed ? "badge-ok" : "badge-warn"}`}>
                     {v.measurementAllowed ? "측정 허용" : "표시 전용"}
                   </span>
@@ -134,6 +159,21 @@ export function ThreeDQualityPanel({
                   {typeof v.metrics.lodSurfaceErrorP95 === "number" &&
                     ` · LOD오차 P95 ${(v.metrics.lodSurfaceErrorP95 as number).toExponential(1)}`}
                 </p>
+                {v.glyphCellId === null && v.variantType !== "COLLISION_PROXY" && (
+                  <button
+                    type="button"
+                    onClick={() => activate.mutate(v)}
+                    disabled={activate.isPending || activeVariantId === v.id}
+                    className="badge badge-neutral mt-1 disabled:opacity-40"
+                    data-testid={`activate-variant-${v.id}`}
+                  >
+                    {activate.isPending && activate.variables?.id === v.id
+                      ? "적용 중…"
+                      : activeVariantId === v.id
+                        ? "사용 중"
+                        : "이 GLB 사용"}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -148,6 +188,9 @@ export function ThreeDQualityPanel({
         </button>
         {upgrade.isError && (
           <p className="mt-1 text-[var(--state-danger)]">{(upgrade.error as Error).message}</p>
+        )}
+        {activate.isError && (
+          <p className="mt-1 text-[var(--state-danger)]">{(activate.error as Error).message}</p>
         )}
       </section>
 

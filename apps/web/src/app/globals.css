@@ -11,7 +11,7 @@
 
   --ink-primary: #1d1c19;
   --ink-secondary: #5f5b53;
-  --ink-tertiary: #817b70;
+  --ink-tertiary: #6f6a61;
   --ink-inverse: #fbfaf7;
 
   --line-soft: #ddd7cc;
@@ -94,7 +94,8 @@ body {
   align-items: center;
   gap: 0.2rem;
   border-radius: 0.35rem;
-  padding: 0.05rem 0.4rem;
+  min-height: 1.5rem;
+  padding: 0.1rem 0.45rem;
   font-size: 0.68rem;
   line-height: 1.2rem;
   white-space: nowrap;

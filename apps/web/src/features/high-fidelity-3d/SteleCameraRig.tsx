@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, OrthographicCamera, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import type { CameraMode, GlyphCell, TabUiState } from "@seokmun/types";
 import type { SlabParams } from "./geometryClient";
+import { museumHeroPose } from "./cameraBookmarks";
 
 type OrbitControlsImpl = {
   object: THREE.Camera;
@@ -46,7 +47,7 @@ export function SteleCameraRig({
   onCameraChange: (camera: { position: [number, number, number]; target: [number, number, number] }) => void;
   flyTo?: FlyToRequest | null;
 }) {
-  const { invalidate } = useThree();
+  const { invalidate, size } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const animRef = useRef<{
     fromPos: THREE.Vector3; toPos: THREE.Vector3;
@@ -58,8 +59,13 @@ export function SteleCameraRig({
   const ortho = mode === "ORTHOGRAPHIC_RESEARCH" || mode === "FRONT_ELEVATION";
   const maxDim = Math.max(params.width, params.height, params.depth);
   // 기본 진입: ¾ 히어로 구도 — 약간 낮은 시점에서 올려봄 (무대 높이 62–78% 프레이밍)
-  const savedPos = uiState.camera?.position ?? [1.7, -0.12, 4.55];
-  const savedTarget = uiState.camera?.target ?? [0, 0.05, 0];
+  const perspectiveFov = mode === "GLYPH_FOCUS" ? 25 : 32;
+  const defaultPose = useMemo(
+    () => museumHeroPose(params, size.width / Math.max(1, size.height), perspectiveFov),
+    [params, perspectiveFov, size.height, size.width]
+  );
+  const savedPos = uiState.camera?.position ?? defaultPose.position;
+  const savedTarget = uiState.camera?.target ?? defaultPose.target;
 
   // 글자 포커스: 선택 셀의 3D bounds → 카메라 target/거리 계산 → 부드러운 이동
   useEffect(() => {
@@ -156,7 +162,7 @@ export function SteleCameraRig({
         <PerspectiveCamera
           makeDefault
           position={savedPos as [number, number, number]}
-          fov={mode === "GLYPH_FOCUS" ? 25 : 32}
+          fov={perspectiveFov}
           near={0.01}
           far={maxDim * 25}
         />

@@ -1,14 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import type { TabUiState } from "@seokmun/types";
 import type { TabDetail } from "@/lib/api";
 import { DemoBadge, RightsBadge } from "@/components/badges";
 import { ASSET_MODE_LABEL } from "@/lib/labels";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
-import { Viewer3D } from "@/features/high-fidelity-3d/HybridSteleViewport";
-import { FragmentViewer } from "@/components/three/FragmentViewer";
 import { SourceCardPanel } from "./SourceCardPanel";
+
+const Viewer3D = dynamic(
+  () =>
+    import("@/features/high-fidelity-3d/HybridSteleViewport").then(
+      (module) => module.Viewer3D
+    ),
+  {
+    ssr: false,
+    loading: () => <div className="p-6 text-sm text-ink-2">3D 뷰어 불러오는 중…</div>,
+  }
+);
+
+const FragmentViewer = dynamic(
+  () => import("@/components/three/FragmentViewer").then((module) => module.FragmentViewer),
+  {
+    ssr: false,
+    loading: () => <div className="p-6 text-sm text-ink-2">파편 뷰어 불러오는 중…</div>,
+  }
+);
 
 function TranscriptionViewer({
   detail,
@@ -131,9 +149,7 @@ export function Workbench({
   onUiStateChange: (patch: Partial<TabUiState>) => void;
 }) {
   const [view, setView] = useState<"work" | "sources">("work");
-  const meshAsset = detail.assets.find(
-    (a) => a.assetType === "MESH" && a.format === "PROCEDURAL_MESH"
-  );
+  const meshAsset = detail.assets.find((a) => a.assetType === "MESH");
   const fragmentAssets = detail.assets.filter(
     (a) => a.format === "PROCEDURAL_FRAGMENT"
   );

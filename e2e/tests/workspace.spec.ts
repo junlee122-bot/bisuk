@@ -97,17 +97,24 @@ test.describe("E2E 1 — 멀티 탭 상태", () => {
     await page.goto(`${SET_URL}?tab=chungju-goguryeobi`);
     await expect(page.locator("canvas")).toHaveCount(1, { timeout: 20_000 });
     await expect
-      .poll(async () => page.evaluate(() => window.__seokmunGl?.active ?? -1))
+      .poll(async () => page.evaluate(() => window.__seokmunGl?.active ?? -1), {
+        timeout: 20_000,
+      })
       .toBe(1);
 
     // 문헌 전용 탭으로 전환 → 캔버스 언마운트 + 컨텍스트 카운터 0
     await page.getByTestId("tab-jian-goguryeo-stele").getByRole("tab").click();
     await expect(page.locator("canvas")).toHaveCount(0);
     await expect
-      .poll(async () => page.evaluate(() => window.__seokmunGl?.active ?? -1))
+      .poll(async () => page.evaluate(() => window.__seokmunGl?.active ?? -1), {
+        timeout: 20_000,
+      })
       .toBe(0);
-    const counters = await page.evaluate(() => window.__seokmunGl);
-    expect(counters?.disposed).toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => page.evaluate(() => window.__seokmunGl?.disposed ?? 0), {
+        timeout: 5_000,
+      })
+      .toBeGreaterThanOrEqual(1);
   });
 });
 

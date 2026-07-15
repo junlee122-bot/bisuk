@@ -7,6 +7,7 @@ import { SceneLook, CameraBookmark } from "@seokmun/types";
 
 let app: FastifyInstance;
 let tmpDir: string;
+const SERVER_SETUP_TIMEOUT_MS = 30_000;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(path.join(os.tmpdir(), "seokmun-look-test-"));
@@ -14,7 +15,7 @@ beforeAll(async () => {
   const { buildServer } = await import("../src/server");
   app = buildServer();
   await app.ready();
-});
+}, SERVER_SETUP_TIMEOUT_MS);
 
 afterAll(async () => {
   await app.close();

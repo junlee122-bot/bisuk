@@ -67,6 +67,37 @@ const PLY_TYPE_SIZE: Record<string, number> = {
   double: 8, float64: 8,
 };
 
+const MAX_PLY_VERTICES = 1_000_000;
+const MAX_PLY_FACES = 1_000_000;
+const MAX_PLY_OTHER_ELEMENT_RECORDS = 1_000_000;
+const MAX_PLY_FACE_VERTICES = 256;
+const MAX_PLY_TRIANGLES = 500_000;
+
+function isValidCount(value: number, max: number, allowZero = true): boolean {
+  return Number.isSafeInteger(value) && value <= max && (allowZero ? value >= 0 : value > 0);
+}
+
+function isFiniteFloat(value: number): boolean {
+  return Number.isFinite(value) && Number.isFinite(Math.fround(value));
+}
+
+function isValidVertexIndex(value: number, vertexCount: number): boolean {
+  return Number.isSafeInteger(value) && value >= 0 && value < vertexCount;
+}
+
+function triangleCountForFace(vertexCount: number): number | null {
+  if (!isValidCount(vertexCount, MAX_PLY_FACE_VERTICES, false) || vertexCount < 3) {
+    return null;
+  }
+  return vertexCount - 2;
+}
+
+function appendFanTriangles(target: number[], faceIndices: number[]): void {
+  for (let i = 1; i < faceIndices.length - 1; i++) {
+    target.push(faceIndices[0]!, faceIndices[i]!, faceIndices[i + 1]!);
+  }
+}
+
 function readPlyScalar(buf: Buffer, offset: number, type: string): number {
   switch (type) {
     case "char": case "int8": return buf.readInt8(offset);
@@ -114,14 +145,45 @@ function parseBinaryPlyToMesh(buf: Buffer): ParsedMesh | null {
   }
   const vertexEl = elements.find((e) => e.name === "vertex");
   if (!vertexEl) return null;
+  const faceEl = elements.find((e) => e.name === "face");
+  if (!isValidCount(vertexEl.count, MAX_PLY_VERTICES, false)) return null;
+  if (
+    faceEl &&
+    (!isValidCount(faceEl.count, MAX_PLY_FACES) || faceEl.count > MAX_PLY_TRIANGLES)
+  ) {
+    return null;
+  }
+  if (
+    elements.some(
+      (element) =>
+        element !== vertexEl &&
+        element !== faceEl &&
+        !isValidCount(element.count, MAX_PLY_OTHER_ELEMENT_RECORDS)
+    )
+  ) {
+    return null;
+  }
+  if (!["x", "y", "z"].every((name) => vertexEl.props.some((p) => p.name === name && !p.isList))) {
+    return null;
+  }
 
   const warnings: string[] = [];
   const positions = new Float32Array(vertexEl.count * 3);
-  const hasNormal = vertexEl.props.some((p) => p.name === "nx");
-  const hasColor = vertexEl.props.some((p) => p.name === "red");
+  const normalPropertyCount = ["nx", "ny", "nz"].filter((name) =>
+    vertexEl.props.some((p) => p.name === name && !p.isList)
+  ).length;
+  const colorPropertyCount = ["red", "green", "blue"].filter((name) =>
+    vertexEl.props.some((p) => p.name === name && !p.isList)
+  ).length;
+  if ((normalPropertyCount > 0 && normalPropertyCount < 3) || (colorPropertyCount > 0 && colorPropertyCount < 3)) {
+    return null;
+  }
+  const hasNormal = normalPropertyCount === 3;
+  const hasColor = colorPropertyCount === 3;
   const normalsRaw = hasNormal ? new Float32Array(vertexEl.count * 3) : null;
   const colors = new Float32Array(vertexEl.count * 3).fill(0.62);
   let triList: number[] = [];
+  let triangleCount = 0;
 
   let off = bodyStart;
   try {
@@ -133,44 +195,66 @@ function parseBinaryPlyToMesh(buf: Buffer): ParsedMesh | null {
             if (p.isList) return null; // 정점에 list 속성 — 미지원
             const size = PLY_TYPE_SIZE[p.type];
             if (!size) return null;
-            values[p.name] = readPlyScalar(buf, off, p.type);
+            const value = readPlyScalar(buf, off, p.type);
+            if (!Number.isFinite(value)) return null;
+            values[p.name] = value;
             off += size;
           }
-          positions[i * 3] = values.x ?? 0;
-          positions[i * 3 + 1] = values.y ?? 0;
-          positions[i * 3 + 2] = values.z ?? 0;
+          const x = values.x!;
+          const y = values.y!;
+          const z = values.z!;
+          if (![x, y, z].every(isFiniteFloat)) return null;
+          positions[i * 3] = x;
+          positions[i * 3 + 1] = y;
+          positions[i * 3 + 2] = z;
           if (normalsRaw) {
-            normalsRaw[i * 3] = values.nx ?? 0;
-            normalsRaw[i * 3 + 1] = values.ny ?? 0;
-            normalsRaw[i * 3 + 2] = values.nz ?? 0;
+            const nx = values.nx!;
+            const ny = values.ny!;
+            const nz = values.nz!;
+            if (![nx, ny, nz].every(isFiniteFloat)) return null;
+            normalsRaw[i * 3] = nx;
+            normalsRaw[i * 3 + 1] = ny;
+            normalsRaw[i * 3 + 2] = nz;
           }
           if (hasColor) {
-            colors[i * 3] = (values.red ?? 158) / 255;
-            colors[i * 3 + 1] = (values.green ?? 158) / 255;
-            colors[i * 3 + 2] = (values.blue ?? 158) / 255;
+            colors[i * 3] = Math.max(0, Math.min(255, values.red!)) / 255;
+            colors[i * 3 + 1] = Math.max(0, Math.min(255, values.green!)) / 255;
+            colors[i * 3 + 2] = Math.max(0, Math.min(255, values.blue!)) / 255;
           }
         }
       } else if (el.name === "face") {
         const listProp = el.props.find((p) => p.isList);
-        if (!listProp) return null;
-        const countSize = PLY_TYPE_SIZE[listProp.countType!]!;
-        const itemSize = PLY_TYPE_SIZE[listProp.itemType!]!;
+        if (!listProp || el.props.length !== 1) return null;
+        const countSize = PLY_TYPE_SIZE[listProp.countType!];
+        const itemSize = PLY_TYPE_SIZE[listProp.itemType!];
+        if (!countSize || !itemSize) return null;
         for (let f = 0; f < el.count; f++) {
           const n = readPlyScalar(buf, off, listProp.countType!);
+          const faceTriangleCount = triangleCountForFace(n);
+          if (
+            faceTriangleCount === null ||
+            triangleCount > MAX_PLY_TRIANGLES - faceTriangleCount
+          ) {
+            return null;
+          }
           off += countSize;
           const idx: number[] = [];
           for (let k = 0; k < n; k++) {
-            idx.push(readPlyScalar(buf, off, listProp.itemType!));
+            const vertexIndex = readPlyScalar(buf, off, listProp.itemType!);
+            if (!isValidVertexIndex(vertexIndex, vertexEl.count)) return null;
+            idx.push(vertexIndex);
             off += itemSize;
           }
-          if (n === 3) triList.push(idx[0]!, idx[1]!, idx[2]!);
-          else if (n === 4) triList.push(idx[0]!, idx[1]!, idx[2]!, idx[0]!, idx[2]!, idx[3]!);
+          appendFanTriangles(triList, idx);
+          triangleCount += faceTriangleCount;
         }
       } else {
         // 알 수 없는 element — list 없는 고정 크기만 건너뛸 수 있음
         const rowSize = el.props.reduce((s, p) => s + (p.isList ? NaN : (PLY_TYPE_SIZE[p.type] ?? NaN)), 0);
         if (Number.isNaN(rowSize)) return null;
-        off += rowSize * el.count;
+        const skipBytes = rowSize * el.count;
+        if (!Number.isSafeInteger(skipBytes) || skipBytes < 0 || off + skipBytes > buf.length) return null;
+        off += skipBytes;
         warnings.push(`element ${el.name} ${el.count}개 건너뜀`);
       }
     }
@@ -215,44 +299,92 @@ export function parsePlyToMesh(buf: Buffer): ParsedMesh | null {
   if (!vertexMatch) return null;
   const vertexCount = Number(vertexMatch[1]);
   const faceCount = faceMatch ? Number(faceMatch[1]) : 0;
+  if (!isValidCount(vertexCount, MAX_PLY_VERTICES, false)) return null;
+  if (!isValidCount(faceCount, MAX_PLY_FACES) || faceCount > MAX_PLY_TRIANGLES) return null;
 
   // 정점 속성 순서 파악
-  const propLines = [...header.matchAll(/property\s+\S+\s+(\S+)/g)].map((m) => m[1]!);
-  const vertexProps = propLines.filter((p) => p !== "vertex_indices" && p !== "vertex_index");
+  const vertexProps: string[] = [];
+  let currentElement = "";
+  for (const rawLine of header.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const element = line.match(/^element\s+(\S+)\s+\d+$/);
+    if (element) {
+      currentElement = element[1]!;
+      continue;
+    }
+    const property = line.match(/^property\s+(?!list\s)\S+\s+(\S+)$/);
+    if (currentElement === "vertex" && property) vertexProps.push(property[1]!);
+  }
   const xi = vertexProps.indexOf("x");
+  const yi = vertexProps.indexOf("y");
+  const zi = vertexProps.indexOf("z");
   const nxi = vertexProps.indexOf("nx");
+  const nyi = vertexProps.indexOf("ny");
+  const nzi = vertexProps.indexOf("nz");
   const ri = vertexProps.indexOf("red");
-  if (xi < 0) return null;
+  const gi = vertexProps.indexOf("green");
+  const bi = vertexProps.indexOf("blue");
+  const normalPropertyCount = [nxi, nyi, nzi].filter((index) => index >= 0).length;
+  const colorPropertyCount = [ri, gi, bi].filter((index) => index >= 0).length;
+  if (xi < 0 || yi < 0 || zi < 0) return null;
+  if ((normalPropertyCount > 0 && normalPropertyCount < 3) || (colorPropertyCount > 0 && colorPropertyCount < 3)) {
+    return null;
+  }
 
   const body = text.slice(headerEnd + "end_header".length).trim().split(/\r?\n/);
   const warnings: string[] = [];
   const positions = new Float32Array(vertexCount * 3);
-  const normalsRaw = nxi >= 0 ? new Float32Array(vertexCount * 3) : null;
+  const normalsRaw = normalPropertyCount === 3 ? new Float32Array(vertexCount * 3) : null;
   const colors = new Float32Array(vertexCount * 3).fill(0.62);
   for (let i = 0; i < vertexCount; i++) {
-    const parts = (body[i] ?? "").trim().split(/\s+/).map(Number);
-    positions[i * 3] = parts[xi] ?? 0;
-    positions[i * 3 + 1] = parts[xi + 1] ?? 0;
-    positions[i * 3 + 2] = parts[xi + 2] ?? 0;
-    if (normalsRaw && parts[nxi] !== undefined) {
-      normalsRaw[i * 3] = parts[nxi]!;
-      normalsRaw[i * 3 + 1] = parts[nxi + 1] ?? 0;
-      normalsRaw[i * 3 + 2] = parts[nxi + 2] ?? 0;
+    const line = body[i]?.trim();
+    if (!line) return null;
+    const parts = line.split(/\s+/).map(Number);
+    const x = parts[xi]!;
+    const y = parts[yi]!;
+    const z = parts[zi]!;
+    if (![x, y, z].every(isFiniteFloat)) return null;
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+    if (normalsRaw) {
+      const nx = parts[nxi]!;
+      const ny = parts[nyi]!;
+      const nz = parts[nzi]!;
+      if (![nx, ny, nz].every(isFiniteFloat)) return null;
+      normalsRaw[i * 3] = nx;
+      normalsRaw[i * 3 + 1] = ny;
+      normalsRaw[i * 3 + 2] = nz;
     }
-    if (ri >= 0 && parts[ri] !== undefined) {
-      colors[i * 3] = (parts[ri] ?? 158) / 255;
-      colors[i * 3 + 1] = (parts[ri + 1] ?? 158) / 255;
-      colors[i * 3 + 2] = (parts[ri + 2] ?? 158) / 255;
+    if (colorPropertyCount === 3) {
+      const red = parts[ri]!;
+      const green = parts[gi]!;
+      const blue = parts[bi]!;
+      if (![red, green, blue].every(Number.isFinite)) return null;
+      colors[i * 3] = Math.max(0, Math.min(255, red)) / 255;
+      colors[i * 3 + 1] = Math.max(0, Math.min(255, green)) / 255;
+      colors[i * 3 + 2] = Math.max(0, Math.min(255, blue)) / 255;
     }
   }
   const triList: number[] = [];
+  let triangleCount = 0;
   for (let f = 0; f < faceCount; f++) {
-    const parts = (body[vertexCount + f] ?? "").trim().split(/\s+/).map(Number);
-    const n = parts[0] ?? 0;
-    if (n === 3) triList.push(parts[1]!, parts[2]!, parts[3]!);
-    else if (n === 4) {
-      triList.push(parts[1]!, parts[2]!, parts[3]!, parts[1]!, parts[3]!, parts[4]!);
+    const line = body[vertexCount + f]?.trim();
+    if (!line) return null;
+    const parts = line.split(/\s+/).map(Number);
+    const n = parts[0]!;
+    const faceTriangleCount = triangleCountForFace(n);
+    if (
+      faceTriangleCount === null ||
+      triangleCount > MAX_PLY_TRIANGLES - faceTriangleCount ||
+      parts.length < n + 1
+    ) {
+      return null;
     }
+    const faceIndices = parts.slice(1, n + 1);
+    if (!faceIndices.every((index) => isValidVertexIndex(index, vertexCount))) return null;
+    appendFanTriangles(triList, faceIndices);
+    triangleCount += faceTriangleCount;
   }
   const indices = new Uint32Array(triList);
   const hadNormals = Boolean(normalsRaw);
@@ -273,7 +405,7 @@ export function parsePlyToMesh(buf: Buffer): ParsedMesh | null {
       triangleCount: indices.length / 3,
     },
     hadNormals,
-    hadColors: ri >= 0,
+    hadColors: colorPropertyCount === 3,
     warnings,
   };
 }

@@ -1,9 +1,8 @@
-import { expect, resetDb, SET_URL, test } from "./fixtures";
+import { API_URL, expect, resetDb, SET_URL, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 /** 포트폴리오 폴리시 검증 — 스펙 §16.4 신규 E2E */
 
-const API = "http://localhost:4100";
 const SHOWCASE_URL = "/showcase/early-korean-stelae-comparative";
 
 function luminance(rgb: string): number {
@@ -13,7 +12,7 @@ function luminance(rgb: string): number {
 }
 
 async function getUiState(page: Page) {
-  const res = await page.request.get(`${API}/api/stele-tabs/chungju-goguryeobi`);
+  const res = await page.request.get(`${API_URL}/api/stele-tabs/chungju-goguryeobi`);
   return (await res.json()).tab.uiState;
 }
 
