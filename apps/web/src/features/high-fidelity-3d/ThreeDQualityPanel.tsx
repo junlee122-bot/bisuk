@@ -85,16 +85,20 @@ export function ThreeDQualityPanel({
 
   return (
     <aside
-      className="absolute right-2 top-2 bottom-2 z-10 w-80 overflow-y-auto rounded border border-[var(--panel-border)] bg-[var(--surface-elevated)] shadow-[var(--shadow-sm)] p-3 text-[11px]"
+      className="absolute inset-y-2 right-2 z-20 w-[min(22rem,calc(100%-1rem))] overflow-y-auto rounded-xl border border-line-soft bg-[var(--surface-elevated)] p-4 text-[11px] shadow-[var(--shadow-md)] backdrop-blur-xl"
       data-testid="quality-panel"
       aria-label="3D 품질 패널"
     >
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">3D 품질</h3>
-        <button onClick={onClose} className="badge badge-neutral">닫기 ✕</button>
+      <div className="flex items-start justify-between gap-3 border-b border-line-soft pb-3">
+        <div>
+          <p className="section-label">Technical report</p>
+          <h3 className="mt-0.5 text-base font-bold">3D 품질·계보</h3>
+          <p className="mt-1 text-[10px] leading-4 text-ink-3">현재 렌더 상태와 파생 자산의 측정 적합성을 확인합니다.</p>
+        </div>
+        <button onClick={onClose} className="ui-button ui-button-ghost min-h-8 px-2 py-1" aria-label="3D 품질 패널 닫기">닫기 ✕</button>
       </div>
 
-      <dl className="mt-2 grid grid-cols-2 gap-1">
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-surface-2 p-3">
         <dt className="text-ink-3">현재 표현</dt>
         <dd data-testid="qp-representation">{representation}</dd>
         <dt className="text-ink-3">원본 유형</dt>
@@ -128,8 +132,8 @@ export function ThreeDQualityPanel({
       </dl>
 
       {report && report.diagnostics.length > 0 && (
-        <section className="mt-2">
-          <h4 className="font-semibold text-[var(--state-warning)]">진단</h4>
+        <section className="mt-4 rounded-lg border border-[#e1d3a6] bg-[#f4edd6] p-3">
+          <h4 className="font-semibold text-[var(--state-warning)]">품질 진단</h4>
           <ul className="mt-1 list-inside list-disc text-ink-2">
             {report.diagnostics.map((d) => (
               <li key={d}>{d}</li>
@@ -138,8 +142,8 @@ export function ThreeDQualityPanel({
         </section>
       )}
 
-      <section className="mt-2">
-        <h4 className="font-semibold">파생 자산 (계보)</h4>
+      <section className="mt-4 border-t border-line-soft pt-3">
+        <h4 className="font-semibold">파생 자산 계보</h4>
         {meshVariants.length === 0 ? (
           <p className="mt-1 text-ink-3">파생 자산 없음 — 파이프라인을 실행하세요.</p>
         ) : (
@@ -194,8 +198,8 @@ export function ThreeDQualityPanel({
         )}
       </section>
 
-      <section className="mt-2">
-        <h4 className="font-semibold">고지</h4>
+      <section className="mt-4 border-t border-line-soft pt-3">
+        <h4 className="font-semibold">해석·측정 고지</h4>
         <ul className="mt-1 list-inside list-disc text-ink-3" data-testid="qp-disclaimers">
           {(report?.disclaimers ?? []).map((d) => (
             <li key={d}>{d}</li>

@@ -8,6 +8,7 @@ import { ReadingBadge } from "@/components/badges";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { useCompareTray } from "@/lib/store";
 import { DossierModal } from "./DossierModal";
+import { Icon } from "@/components/ui/Icon";
 
 function DocumentUpload({ tabId }: { tabId: string }) {
   const qc = useQueryClient();
@@ -183,11 +184,35 @@ export function EvidencePanel({
   const shownResult = result && result.glyphCell.id === selectedId ? result : null;
 
   return (
-    <div className="flex h-full flex-col gap-2 overflow-y-auto p-2" data-testid="evidence-panel">
+    <div className="flex h-full flex-col overflow-y-auto bg-surface" data-testid="evidence-panel">
+      <header className="sticky top-0 z-10 border-b border-line-soft bg-[var(--surface-elevated)] p-3 backdrop-blur">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="section-label">Step 3 · Evidence</p>
+            <h2 className="mt-0.5 text-sm font-bold">근거 검토</h2>
+            <p className="text-[11px] text-ink-3">후보·지지·반증·인용 상태를 함께 판단합니다.</p>
+          </div>
+          <span className={`badge ${cell ? "badge-ok" : "badge-neutral"}`}>
+            {cell ? "문자 선택됨" : "선택 대기"}
+          </span>
+        </div>
+      </header>
+      <div className="space-y-2 p-2.5">
       {!cell && (
-        <p className="p-3 text-xs text-ink-3">
-          작업대나 트리에서 문자 셀을 선택하면 후보·근거·반증이 표시됩니다.
-        </p>
+        <section className="rounded-xl border border-dashed border-line-strong bg-surface-2 p-4">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-jade-soft text-jade">
+            <Icon name="search" />
+          </span>
+          <h3 className="mt-3 text-sm font-bold">검토할 문자를 선택하세요</h3>
+          <p className="mt-1 text-xs leading-5 text-ink-2">
+            왼쪽 대상 목록이나 중앙 3D 표면에서 문자 영역을 선택하면 분석 도구가 활성화됩니다.
+          </p>
+          <ol className="mt-3 space-y-2 text-[11px] text-ink-3">
+            <li className="flex gap-2"><span className="font-bold text-clay">1</span> 관측도와 손상 등급 확인</li>
+            <li className="flex gap-2"><span className="font-bold text-clay">2</span> 독립 후보 분석 실행</li>
+            <li className="flex gap-2"><span className="font-bold text-clay">3</span> 지지·반증 문헌과 인용 검증</li>
+          </ol>
+        </section>
       )}
       {cell && (
         <>
@@ -208,28 +233,29 @@ export function EvidencePanel({
             </div>
           </section>
 
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             <button
               onClick={() => analyzeMutation.mutate(cell.id)}
               disabled={analyzeMutation.isPending}
-              className="badge badge-demo disabled:opacity-40"
+              className="ui-button ui-button-primary col-span-2 min-h-9"
               data-testid="analyze-button"
             >
-              {analyzeMutation.isPending ? "분석 중…" : "▶ 독립 분석 실행"}
+              <Icon name="spark" />
+              {analyzeMutation.isPending ? "독립 분석 실행 중" : "독립 후보 분석"}
             </button>
             <button
               onClick={() => setDossierOpen(true)}
-              className="badge badge-neutral"
+              className="ui-button ui-button-secondary min-h-9 px-2"
               data-testid="open-dossier"
             >
-              Evidence Dossier
+              <Icon name="document" /> 근거철
             </button>
             <button
               onClick={() => tray.add(cell.id)}
-              className="badge badge-frontier"
+              className="ui-button ui-button-secondary min-h-9 px-2"
               data-testid="add-to-compare"
             >
-              + 비교 트레이
+              <Icon name="layers" /> 비교 추가
             </button>
           </div>
 
@@ -263,7 +289,8 @@ export function EvidencePanel({
 
               <section className="panel p-2" data-testid="candidates">
                 <h3 className="text-xs font-semibold text-ink-2">후보 (독립 생성)</h3>
-                <table className="mt-1 w-full text-[11px]">
+                <div className="mt-1 overflow-x-auto">
+                <table className="w-full min-w-72 text-[11px]">
                   <thead>
                     <tr className="text-left text-ink-3">
                       <th>후보</th>
@@ -293,6 +320,7 @@ export function EvidencePanel({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </section>
 
               <section className="panel p-2" data-testid="evidence-list">
@@ -336,6 +364,7 @@ export function EvidencePanel({
       {dossierOpen && cell && (
         <DossierModal glyphCellId={cell.id} onClose={() => setDossierOpen(false)} />
       )}
+      </div>
     </div>
   );
 }

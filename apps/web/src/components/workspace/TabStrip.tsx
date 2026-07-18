@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { SetOverview } from "@/lib/api";
 import { RoleBadges } from "@/components/badges";
+import { Icon } from "@/components/ui/Icon";
 
 export function TabStrip({
   overview,
@@ -44,10 +45,13 @@ export function TabStrip({
 
   return (
     <div
-      className="flex items-center gap-1 overflow-x-auto border-b border-[var(--panel-border)] bg-surface px-2 py-1.5"
-      role="tablist"
-      aria-label="비석 탭"
+      className="flex items-center gap-1.5 overflow-x-auto border-b border-line-soft bg-surface-2 px-2 py-2"
     >
+      <div className="sticky left-0 z-10 mr-1 flex shrink-0 items-center gap-2 border-r border-line-soft bg-surface-2 pr-3 text-xs" role="presentation">
+        <span className="font-semibold text-ink-2">연구 대상</span>
+        <span className="badge badge-neutral">{sorted.length}</span>
+      </div>
+      <div className="contents" role="tablist" aria-label="비석 탭">
       {sorted.map((id) => {
         const entry = overview.tabs.find((t) => t.tab.id === id);
         if (!entry) return null;
@@ -56,10 +60,10 @@ export function TabStrip({
         return (
           <div
             key={id}
-            className={`group relative flex shrink-0 items-center gap-1.5 rounded-t-lg border px-2 py-1 text-sm ${
+            className={`group relative flex min-h-10 shrink-0 items-center gap-1 rounded-lg border px-1.5 py-1 text-sm transition ${
               active
-                ? "border-line-soft bg-[var(--panel-bg)] shadow-[var(--shadow-xs)] after:absolute after:inset-x-1 after:top-0 after:h-0.5 after:rounded-full after:bg-clay"
-                : "border-transparent bg-surface-muted hover:border-line-soft"
+                ? "border-line-strong bg-surface shadow-[var(--shadow-xs)] after:absolute after:inset-y-2 after:left-0 after:w-0.5 after:rounded-full after:bg-clay"
+                : "border-transparent bg-transparent hover:border-line-soft hover:bg-surface"
             }`}
             data-testid={`tab-${id}`}
             data-active={active}
@@ -69,10 +73,10 @@ export function TabStrip({
               role="tab"
               aria-selected={active}
               onClick={() => onActivate(id)}
-              className="flex items-center gap-1.5"
+              className="flex min-h-8 items-center gap-1.5 px-1"
               title={tab.canonicalName}
             >
-              {pinned.has(id) && <span aria-label="고정됨">📌</span>}
+              {pinned.has(id) && <span className="h-1.5 w-1.5 rounded-full bg-clay" aria-label="고정됨" />}
               <svg
                 viewBox="0 0 10 14"
                 width="10"
@@ -107,32 +111,36 @@ export function TabStrip({
                 </span>
               )}
             </button>
-            <span className="hidden items-center gap-0.5 text-xs text-ink-3 group-hover:flex group-focus-within:flex">
+            <span className={`${active ? "flex" : "hidden"} items-center gap-0.5 text-[10px] text-ink-3 group-hover:flex group-focus-within:flex`}>
               <button
                 onClick={() => move(id, -1)}
                 aria-label={`${tab.title} 왼쪽으로 이동`}
                 data-testid={`tab-move-left-${id}`}
+                className="rounded px-1 py-1 hover:bg-surface-muted hover:text-ink"
               >
-                ◀
+                ‹
               </button>
               <button
                 onClick={() => move(id, 1)}
                 aria-label={`${tab.title} 오른쪽으로 이동`}
                 data-testid={`tab-move-right-${id}`}
+                className="rounded px-1 py-1 hover:bg-surface-muted hover:text-ink"
               >
-                ▶
+                ›
               </button>
               <button
                 onClick={() => onPinToggle(id)}
                 aria-label={`${tab.title} 고정 전환`}
                 data-testid={`tab-pin-${id}`}
+                className="rounded px-1 py-1 hover:bg-surface-muted hover:text-ink"
               >
-                📌
+                고정
               </button>
               <button
                 onClick={() => onClose(id)}
                 aria-label={`${tab.title} 닫기(보관)`}
                 data-testid={`tab-close-${id}`}
+                className="rounded px-1 py-1 hover:bg-[#f7e3e0] hover:text-[var(--state-danger)]"
               >
                 ✕
               </button>
@@ -140,6 +148,7 @@ export function TabStrip({
           </div>
         );
       })}
+      </div>
       {adding ? (
         <form
           className="flex shrink-0 items-center gap-1"
@@ -157,7 +166,7 @@ export function TabStrip({
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="비석 이름"
-            className="w-40 rounded border border-[var(--panel-border)] bg-transparent px-2 py-0.5 text-sm"
+            className="ui-input h-9 min-h-9 w-44 py-1 text-sm"
             aria-label="새 탭 비석 이름"
           />
           <button type="submit" className="badge badge-ok">
@@ -170,10 +179,10 @@ export function TabStrip({
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="shrink-0 rounded px-2 py-1 text-sm text-ink-2 hover:text-[var(--accent)]"
+          className="ui-button ui-button-secondary min-h-9 shrink-0 px-2.5 py-1"
           data-testid="tab-add"
         >
-          + 탭 추가
+          <Icon name="plus" /> 대상 추가
         </button>
       )}
     </div>

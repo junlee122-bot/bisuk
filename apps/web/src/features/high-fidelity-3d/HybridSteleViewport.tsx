@@ -934,10 +934,11 @@ export function Viewer3D({
           모드 전환은 표시 계층만 바꾸며 카메라·선택·탭 상태를 건드리지 않는다. */}
       {exhibition ? (
         <div
-          className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]"
+          className="flex items-center gap-2 overflow-x-auto border-b border-line-soft bg-surface px-3 py-2 text-[11px]"
           data-testid="exhibition-toolbar"
         >
-          <span className="text-ink-3">조명</span>
+          <span className="section-label shrink-0">전시 연출</span>
+          <span className="shrink-0 text-ink-3">조명</span>
           {(["MUSEUM_NEUTRAL", "FIELD_DAYLIGHT", "RAKING"] as const).map((key) => (
             <button
               key={key}
@@ -950,7 +951,7 @@ export function Viewer3D({
               {LIGHTING_PRESETS[key].label}
             </button>
           ))}
-          <span className="ml-2 text-ink-3">카메라</span>
+          <span className="ml-2 shrink-0 text-ink-3">시점</span>
           {CAMERA_MODES.map(([key, label]) => (
             <button
               key={key}
@@ -962,14 +963,14 @@ export function Viewer3D({
               {label}
             </button>
           ))}
-          <span className="ml-auto text-ink-3">
+          <span className="ml-auto shrink-0 rounded-full bg-surface-muted px-2 py-1 text-ink-3">
             표시 설정 전용 — 측정·판독 기준은 연구 보기
           </span>
         </div>
       ) : (
       <>
-      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]">
-        <span className="text-ink-3">표현</span>
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-line-soft bg-surface px-3 py-2 text-[11px]">
+        <span className="section-label shrink-0">표현 기준</span>
         {REPRESENTATIONS.map(([key, label]) => (
           <button
             key={key}
@@ -981,7 +982,7 @@ export function Viewer3D({
             {label}
           </button>
         ))}
-        <span className="ml-2 text-ink-3">조명</span>
+        <span className="ml-2 shrink-0 text-ink-3">조명 환경</span>
         {(Object.keys(LIGHTING_PRESETS) as Array<keyof typeof LIGHTING_PRESETS>).map((key) => (
           <button
             key={key}
@@ -994,7 +995,7 @@ export function Viewer3D({
             {LIGHTING_PRESETS[key].label}
           </button>
         ))}
-        <span className="ml-2 text-ink-3">분석</span>
+        <span className="ml-2 shrink-0 text-ink-3">표면 분석</span>
         {ANALYSIS_MODES.map(([key, label]) => (
           <button
             key={key}
@@ -1013,8 +1014,9 @@ export function Viewer3D({
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]">
-        <span className="text-ink-3">카메라</span>
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-line-soft bg-surface-2 px-3 py-2 text-[11px]">
+        <span className="section-label shrink-0">관찰 설정</span>
+        <span className="shrink-0 text-ink-3">시점</span>
         {CAMERA_MODES.map(([key, label]) => (
           <button
             key={key}
@@ -1027,7 +1029,7 @@ export function Viewer3D({
           </button>
         ))}
         <label className="ml-1 flex items-center gap-1">
-          <span className="text-ink-3">품질</span>
+          <span className="text-ink-3">렌더 품질</span>
           <select
             value={uiState.qualityTier ?? "AUTO"}
             onChange={(e) => onUiStateChange({ qualityTier: e.target.value as TabUiState["qualityTier"] })}
@@ -1124,21 +1126,21 @@ export function Viewer3D({
         )}
         <button
           onClick={() => setPanelOpen((v) => !v)}
-          className={`badge ml-auto ${panelOpen ? "badge-demo" : "badge-neutral"}`}
+          className={`badge ml-auto shrink-0 ${panelOpen ? "badge-demo" : "badge-neutral"}`}
           data-testid="quality-panel-toggle"
         >
-          3D 품질
+          품질 보고서
         </button>
-        <button onClick={() => void captureReference()} className="badge badge-neutral" data-testid="save-reference">
-          기준 렌더 저장
+        <button onClick={() => void captureReference()} className="badge badge-neutral shrink-0" data-testid="save-reference">
+          기준 렌더
         </button>
       </div>
       </>
       )}
 
       {/* 관찰 도구 행 — 카메라 북마크(1–5) · 확대경(M) · 촬영 (양 모드 공통) */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface px-2 py-1 text-[11px]">
-        <span className="text-ink-3">북마크</span>
+      <div className="flex items-center gap-1.5 overflow-x-auto border-b border-line-soft bg-surface px-3 py-2 text-[11px]">
+        <span className="section-label shrink-0">빠른 시점</span>
         {BOOKMARK_ORDER.map((name, i) => (
           <button
             key={name}
@@ -1150,7 +1152,7 @@ export function Viewer3D({
             {i + 1} {BOOKMARK_LABEL[name]}
           </button>
         ))}
-        <span className="ml-2 text-ink-3">확대경</span>
+        <span className="ml-2 shrink-0 text-ink-3">확대경</span>
         <button
           data-testid="magnifier-toggle"
           aria-pressed={magnifier.active}
@@ -1173,9 +1175,9 @@ export function Viewer3D({
         <button
           data-testid="screenshot-composer-open"
           onClick={() => setComposerOpen((v) => !v)}
-          className={`badge ml-auto ${composerOpen ? "badge-demo" : "badge-neutral"}`}
+          className={`badge ml-auto shrink-0 ${composerOpen ? "badge-demo" : "badge-neutral"}`}
         >
-          촬영
+          이미지 내보내기
         </button>
       </div>
 
@@ -1381,6 +1383,13 @@ export function Viewer3D({
             </div>
           )}
           <span className="badge badge-neutral">상대 크기 · 가상 단위 — mm 환산 없음</span>
+        </div>
+        <div className="pointer-events-none absolute bottom-2 right-2 hidden items-center gap-2 rounded-full border border-white/40 bg-[var(--surface-elevated)] px-2.5 py-1 text-[10px] text-ink-2 shadow-[var(--shadow-xs)] backdrop-blur sm:flex">
+          <span>드래그 회전</span>
+          <span className="text-line-strong">·</span>
+          <span>휠 확대</span>
+          <span className="text-line-strong">·</span>
+          <span>글자 클릭</span>
         </div>
         {/* 확대경 링 오버레이 — 렌즈 렌더 영역 표시 + LOD·패치 상태 */}
         {magnifier.active && canvasWrapRef.current && (() => {
