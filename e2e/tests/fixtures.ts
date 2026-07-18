@@ -2,6 +2,11 @@ import { test as base, expect, type Page } from "@playwright/test";
 
 export const SET_ID = "early-korean-stelae-comparative";
 export const SET_URL = `/sets/${SET_ID}`;
+const apiPort = Number(process.env.E2E_API_PORT ?? 4100);
+if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65_535) {
+  throw new Error("E2E_API_PORT must be an integer between 1 and 65535");
+}
+export const API_URL = `http://127.0.0.1:${apiPort}`;
 
 /** 모든 테스트에서 콘솔 오류·페이지 예외를 수집하고 테스트 종료 시 0건을 검증한다. */
 export const test = base.extend<{ consoleGuard: string[] }>({
@@ -26,6 +31,6 @@ export const test = base.extend<{ consoleGuard: string[] }>({
 export { expect };
 
 export async function resetDb(page: Page): Promise<void> {
-  const res = await page.request.post("http://localhost:4100/api/dev/reset");
+  const res = await page.request.post(`${API_URL}/api/dev/reset`, { timeout: 15_000 });
   expect(res.ok()).toBeTruthy();
 }

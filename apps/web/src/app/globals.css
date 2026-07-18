@@ -11,7 +11,7 @@
 
   --ink-primary: #1d1c19;
   --ink-secondary: #5f5b53;
-  --ink-tertiary: #817b70;
+  --ink-tertiary: #6f6a61;
   --ink-inverse: #fbfaf7;
 
   --line-soft: #ddd7cc;
@@ -38,6 +38,7 @@
   --shadow-sm: 0 6px 18px rgba(44, 37, 29, 0.08);
   --shadow-md: 0 18px 48px rgba(44, 37, 29, 0.1);
   --shadow-stage: 0 32px 80px rgba(44, 37, 29, 0.16);
+  --shadow-focus: 0 0 0 3px rgba(159, 91, 63, 0.16);
 
   /* 구 다크 토큰 별칭 — 기존 컴포넌트 호환 (값은 라이트) */
   --stone-bg: var(--canvas-page);
@@ -78,6 +79,14 @@ body {
     system-ui, -apple-system, sans-serif;
 }
 
+body {
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(159, 91, 63, 0.2);
+}
+
 .font-display {
   font-family: var(--font-serif-kr, "Noto Serif KR"), "Nanum Myeongjo", ui-serif, serif;
 }
@@ -89,12 +98,159 @@ body {
   box-shadow: var(--shadow-xs);
 }
 
+.panel-interactive {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.panel-interactive:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.section-label {
+  color: var(--ink-tertiary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.ui-button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1rem;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.ui-button-primary {
+  background: var(--accent-clay);
+  color: var(--ink-inverse);
+}
+
+.ui-button-primary:hover {
+  background: var(--accent-clay-strong);
+}
+
+.ui-button-secondary {
+  background: var(--surface-primary);
+  border-color: var(--line-soft);
+  color: var(--ink-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+.ui-button-secondary:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-secondary);
+}
+
+.ui-button-ghost {
+  color: var(--ink-secondary);
+}
+
+.ui-button-ghost:hover {
+  background: var(--surface-muted);
+  color: var(--ink-primary);
+}
+
+.ui-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ui-input {
+  min-height: 2.5rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.55rem;
+  background: var(--surface-primary);
+  color: var(--ink-primary);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  box-shadow: inset 0 1px 1px rgba(44, 37, 29, 0.03);
+}
+
+.ui-input::placeholder {
+  color: var(--ink-tertiary);
+}
+
+.ui-input:focus {
+  border-color: var(--line-focus);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.metric-card {
+  min-width: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.65rem;
+  background: var(--surface-secondary);
+  padding: 0.7rem 0.8rem;
+}
+
+.research-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr));
+}
+
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.6rem;
+  background: var(--surface-primary);
+  padding: 0.2rem;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.skeleton {
+  border-radius: 0.45rem;
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 20%,
+    var(--surface-primary) 50%,
+    var(--surface-muted) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
   border-radius: 0.35rem;
-  padding: 0.05rem 0.4rem;
+  min-height: 1.5rem;
+  padding: 0.1rem 0.45rem;
   font-size: 0.68rem;
   line-height: 1.2rem;
   white-space: nowrap;

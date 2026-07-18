@@ -222,6 +222,24 @@
         "depth": 0.4,
         "noiseSeed": 41,
         "noiseAmp": 0.012,
+        "presentationAssetUrl": "/models/demo-a-museum-stele.glb",
+        "presentationAssetBounds": {
+          "min": [-0.6939628124, -0.0031666756, -0.3621908128],
+          "max": [0.6928128004, 2.8460930586, 0.3624428511]
+        },
+        "blenderAsset": {
+          "sourceBlend": "assets/blender/demo-a-museum-stele.blend",
+          "generator": "scripts/blender/generate_museum_stele.py",
+          "generatorVersion": "1.1.0",
+          "blenderVersion": "2.93.18",
+          "deterministicSeed": 410219,
+          "sourceState": "GENERATED_VISUAL_ONLY",
+          "measurementAllowed": false,
+          "visualizationOnly": true,
+          "unit": "m",
+          "externalModels": 0,
+          "externalTextures": 0
+        },
         "crack": { "from": [0.12, 0.62], "to": [0.95, 0.78], "depth": 0.02, "widthFrac": 0.035 },
         "lodGrids": { "PREVIEW": [24, 64], "MEDIUM": [48, 128], "FULL": [96, 256] }
       }

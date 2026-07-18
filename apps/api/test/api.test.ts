@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;
 let tmpDir: string;
+const SERVER_SETUP_TIMEOUT_MS = 30_000;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(path.join(os.tmpdir(), "seokmun-api-test-"));
@@ -13,7 +14,7 @@ beforeAll(async () => {
   const { buildServer } = await import("../src/server");
   app = buildServer();
   await app.ready();
-});
+}, SERVER_SETUP_TIMEOUT_MS);
 
 afterAll(async () => {
   await app.close();
@@ -21,6 +22,24 @@ afterAll(async () => {
 });
 
 const SET_ID = "early-korean-stelae-comparative";
+
+describe("API 접근 안전성", () => {
+  it("로컬 웹 출처만 CORS로 허용한다", async () => {
+    const allowed = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: { origin: "http://localhost:3100" },
+    });
+    expect(allowed.headers["access-control-allow-origin"]).toBe("http://localhost:3100");
+
+    const denied = await app.inject({
+      method: "GET",
+      url: "/api/health",
+      headers: { origin: "https://attacker.example" },
+    });
+    expect(denied.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
 
 describe("연구 세트 / 탭", () => {
   it("시드된 기본 연구 세트와 6개 탭을 반환한다", async () => {
@@ -286,6 +305,21 @@ describe("자산 업로드 importer + 권리 게이트", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("다른 비석 탭의 출처 레코드를 업로드에 연결할 수 없다", async () => {
+    const otherTab = (
+      await app.inject({ method: "GET", url: "/api/stele-tabs/uljin-bongpyeong-stele" })
+    ).json();
+    const sourceRecordId = otherTab.sourceRecords[0].id as string;
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/stele-tabs/chungju-goguryeobi/assets/upload?filename=scan.ply&usagePurpose=test&sourceRecordId=${encodeURIComponent(sourceRecordId)}`,
+      headers: { "content-type": "application/octet-stream" },
+      payload: Buffer.from("ply\nformat ascii 1.0\nelement vertex 1\nproperty float x\nproperty float y\nproperty float z\nend_header\n0 0 0\n"),
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("SOURCE_RECORD_TAB_MISMATCH");
+  });
+
   it("권리 미확인 상태에서 PUBLIC 내보내기 차단 → 확인 후 허용 (E2E4)", async () => {
     const blocked = await app.inject({
       method: "GET",
@@ -417,6 +451,22 @@ describe("벤치마크 평가 (누출 격리)", () => {
 });
 
 describe("dev reset", () => {
+  it("테스트가 아닌 환경에서는 명시적 플래그 없이 차단한다", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousResetFlag = process.env.ENABLE_DEV_RESET;
+    process.env.NODE_ENV = "development";
+    delete process.env.ENABLE_DEV_RESET;
+    try {
+      const res = await app.inject({ method: "POST", url: "/api/dev/reset" });
+      expect(res.statusCode).toBe(403);
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      if (previousResetFlag === undefined) delete process.env.ENABLE_DEV_RESET;
+      else process.env.ENABLE_DEV_RESET = previousResetFlag;
+    }
+  });
+
   it("리셋 후 시드가 복원된다", async () => {
     const res = await app.inject({ method: "POST", url: "/api/dev/reset" });
     expect(res.statusCode).toBe(200);

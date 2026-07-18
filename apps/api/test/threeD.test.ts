@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -6,6 +6,8 @@ import type { FastifyInstance } from "fastify";
 
 let app: FastifyInstance;
 let tmpDir: string;
+const SERVER_SETUP_TIMEOUT_MS = 60_000;
+const UPGRADE_PIPELINE_TIMEOUT_MS = 30_000;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(path.join(os.tmpdir(), "seokmun-3d-test-"));
@@ -13,11 +15,11 @@ beforeAll(async () => {
   const { buildServer } = await import("../src/server");
   app = buildServer();
   await app.ready();
-});
+}, SERVER_SETUP_TIMEOUT_MS);
 
 afterAll(async () => {
-  await app.close();
-  rmSync(tmpDir, { recursive: true, force: true });
+  if (app) await app.close();
+  if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
 });
 
 describe("3D 업그레이드 파이프라인 (데모 자산)", () => {
@@ -48,7 +50,7 @@ describe("3D 업그레이드 파이프라인 (데모 자산)", () => {
     expect(pbr.sourceState).toBe("PRESENTATION_ENHANCED");
     expect(pbr.measurementAllowed).toBe(false);
     expect(pbr.parentVariantIds).toContain(high.id);
-  });
+  }, UPGRADE_PIPELINE_TIMEOUT_MS);
 
   it("variant GLB 파일이 서빙된다 (glTF 매직 바이트)", async () => {
     const variants = (
@@ -58,6 +60,8 @@ describe("3D 업그레이드 파이프라인 (데모 자산)", () => {
     const res = await app.inject({ method: "GET", url: `/api/3d/variants/${v.id}/file` });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("model/gltf-binary");
+    expect(res.headers["cache-control"]).toBe("private, no-store");
+    expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect(res.rawPayload.subarray(0, 4).toString("latin1")).toBe("glTF");
   });
 
@@ -112,7 +116,7 @@ describe("3D 업그레이드 파이프라인 (데모 자산)", () => {
     // [count u32][pos f32*3n][col f32*3n][size f32*n]
     expect(file.rawPayload.readUInt32LE(0)).toBe(60000);
     expect(file.rawPayload.length).toBe(4 + 60000 * 4 * 7);
-  });
+  }, UPGRADE_PIPELINE_TIMEOUT_MS);
 
   it("splat/train은 어댑터 미설치를 정직하게 보고 (501)", async () => {
     const res = await app.inject({ method: "POST", url: "/api/3d/splat/train", payload: {} });
@@ -133,6 +137,29 @@ describe("어댑터 레지스트리", () => {
     expect(openmvs.licenseWarning).toContain("AGPL");
     const rs = adapters.find((a: { id: string }) => a.id === "realityscan");
     expect(rs.licenseClass).toBe("COMMERCIAL");
+  });
+
+  it("가짜 .exe와 Blender가 아닌 실행 파일을 모두 거부한다", async () => {
+    const blenderBin = path.join(tmpDir, "blender-test.exe");
+    writeFileSync(blenderBin, "test binary");
+    chmodSync(blenderBin, 0o755);
+    const previous = process.env.BLENDER_BIN;
+    try {
+      process.env.BLENDER_BIN = blenderBin;
+      const fakeAdapters = (await app.inject({ method: "GET", url: "/api/3d/adapters" })).json();
+      expect(fakeAdapters.find((adapter: { id: string }) => adapter.id === "blender").available).toBe(false);
+
+      process.env.BLENDER_BIN = process.execPath;
+      const wrongExecutableAdapters = (await app.inject({ method: "GET", url: "/api/3d/adapters" })).json();
+      expect(wrongExecutableAdapters.find((adapter: { id: string }) => adapter.id === "blender").available).toBe(false);
+
+      const { matchesAdapterVersionOutput } = await import("../src/threeD/adapters");
+      expect(matchesAdapterVersionOutput("Blender 4.5.3 LTS", /\bBlender\b/i)).toBe(true);
+      expect(matchesAdapterVersionOutput("v24.15.0", /\bBlender\b/i)).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env.BLENDER_BIN;
+      else process.env.BLENDER_BIN = previous;
+    }
   });
 
   it("미가용 어댑터로 재구성 제출 시 409", async () => {
@@ -191,5 +218,12 @@ describe("업로드 자산 3D 파이프라인", () => {
     expect(high.triangleCount).toBe(n * n * 2);
     expect(high.pipelineName).toBe("upload-ingest");
     expect(high.metrics.hadNormals).toBe(false);
+    const restrictedFile = await app.inject({
+      method: "GET",
+      url: `/api/3d/variants/${high.id}/file`,
+    });
+    expect(restrictedFile.statusCode).toBe(403);
+    expect(restrictedFile.headers["cache-control"]).toBe("no-store");
+    expect(restrictedFile.headers["x-content-type-options"]).toBe("nosniff");
   });
 });

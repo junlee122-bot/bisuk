@@ -2,18 +2,17 @@
 const { chromium } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
+const { WEB, API } = require("./runtime-env.cjs");
 
 const OUT = "/home/user/bisuk/docs/portfolio-polish/screenshots/lookdev";
 const SET = "early-korean-stelae-comparative";
-const WEB = "http://localhost:3100";
-const API = "http://localhost:4100";
 const HERO = { position: [1.5, -0.12, 3.62], target: [0, 0.05, 0] };
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await page.request.post(`${API}/api/dev/reset`);
+  await page.request.post(`${API}/api/dev/reset`, { timeout: 15_000 });
   await page.request.post(`${API}/api/stele-tabs/chungju-goguryeobi/ui-state`, {
     data: {
       qualityTier: "BALANCED", lodLevel: "MEDIUM", exposure: 1, aoStrength: 0.6,

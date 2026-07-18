@@ -21,3 +21,5 @@ e2e/playwright-report/
 e2e/.playwright/
 test-results/
 playwright-report/
+.vercel
+.env*

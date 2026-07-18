@@ -36,7 +36,6 @@ interface Chapter {
 }
 
 const FOCUS_CELL = "demoA-L2-C3";
-const UNKNOWN_CELL = "demoA-L3-C5";
 
 const CHAPTERS: Chapter[] = [
   {
@@ -87,10 +86,14 @@ export function Showcase({ setId }: { setId: string }) {
   const searchParams = useSearchParams();
   const setMode = useStageMode((s) => s.setMode);
 
-  // 쇼케이스는 전시 동선 — 진입 시 전시 보기
-  useEffect(() => setMode("EXHIBITION"), [setMode]);
+  // 쇼케이스는 전시 동선이지만 작업대로 돌아갈 때 기존 모드를 복원한다.
+  useEffect(() => {
+    const previous = useStageMode.getState().mode;
+    setMode("EXHIBITION");
+    return () => setMode(previous);
+  }, [setMode]);
 
-  const { data } = useQuery({
+  const { data, error, isError, refetch } = useQuery({
     queryKey: ["showcase", setId],
     queryFn: async () => {
       const overview = await api.getSet(setId);
@@ -101,10 +104,9 @@ export function Showcase({ setId }: { setId: string }) {
     },
   });
 
-  const chapterIdx = Math.min(
-    CHAPTERS.length - 1,
-    Math.max(0, Number(searchParams.get("chapter") ?? "1") - 1)
-  );
+  const chapterParam = Number(searchParams.get("chapter") ?? "1");
+  const requestedChapter = Number.isFinite(chapterParam) ? Math.trunc(chapterParam) : 1;
+  const chapterIdx = Math.min(CHAPTERS.length - 1, Math.max(0, requestedChapter - 1));
   const chapter = CHAPTERS[chapterIdx]!;
   const [guided, setGuided] = useState(true);
   const [flyTo, setFlyTo] = useState<{ name: BookmarkName; seq: number } | null>(null);
@@ -151,14 +153,22 @@ export function Showcase({ setId }: { setId: string }) {
   const primary = useMemo(() => {
     if (!data) return null;
     const withMesh = data.details.find((d) =>
-      d.assets.some((a) => a.assetType === "MESH" && a.format === "PROCEDURAL_MESH")
+      d.assets.some((a) => a.assetType === "MESH" && publicShowable(a))
     );
     return withMesh ?? data.details[0] ?? null;
   }, [data]);
 
   const meshAsset = primary?.assets.find(
-    (a) => a.assetType === "MESH" && a.format === "PROCEDURAL_MESH" && publicShowable(a)
+    (a) => a.assetType === "MESH" && publicShowable(a)
   );
+  const focusCellId =
+    primary?.glyphCells.find((cell) =>
+      ["PARTIALLY_OBSERVED", "UNKNOWN", "CONFLICTING"].includes(cell.readingStatus)
+    )?.id ?? primary?.glyphCells[0]?.id ?? null;
+
+  useEffect(() => {
+    if (guided && chapter.key === "glyph" && focusCellId) setSelectedGlyph(focusCellId);
+  }, [chapter.key, focusCellId, guided]);
 
   // 권리 게이트 — 공개 불가 자산 목록 (내용은 노출하지 않고 사유만)
   const gatedAssets = useMemo(
@@ -186,14 +196,36 @@ export function Showcase({ setId }: { setId: string }) {
     };
   }, [data]);
 
+  if (isError) {
+    return (
+      <div className="grid min-h-full place-items-center bg-paper p-6" role="alert">
+        <section className="panel max-w-lg p-5 text-center">
+          <h1 className="font-display text-xl font-semibold">쇼케이스를 불러오지 못했습니다</h1>
+          <p className="mt-2 text-sm text-ink-2">
+            {error instanceof Error ? error.message : "API 연결 상태를 확인해 주세요."}
+          </p>
+          <button className="badge badge-demo mt-4 px-4" onClick={() => void refetch()}>
+            다시 시도
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   if (!data || !metrics) {
     return <p className="p-8 text-sm text-ink-2">쇼케이스 불러오는 중…</p>;
   }
 
   return (
-    <div className="min-h-full bg-paper" data-testid="showcase-root">
+    <div
+      className="min-h-full bg-paper lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
+      data-testid="showcase-root"
+    >
       {/* Hero */}
-      <section className="border-b border-line-soft bg-[var(--canvas-page)] px-6 pb-4 pt-8 text-center" data-testid="showcase-hero">
+      <section
+        className="border-b border-line-soft bg-[var(--canvas-page)] px-6 pb-4 pt-8 text-center lg:shrink-0"
+        data-testid="showcase-hero"
+      >
         <p className="text-xs tracking-widest text-ink-3">석문 Studio</p>
         <h1 className="font-display mt-1 text-3xl font-semibold sm:text-4xl">
           {data.overview.set.name}
@@ -229,8 +261,8 @@ export function Showcase({ setId }: { setId: string }) {
       </section>
 
       {/* Stage + Chapters */}
-      <div className="grid min-h-[calc(100vh-4rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_26rem]">
-        <section className="relative min-h-[420px] lg:sticky lg:top-0 lg:h-[calc(100vh-4rem)]">
+      <div className="grid min-h-[calc(100vh-4rem)] grid-cols-1 lg:min-h-[320px] lg:flex-1 lg:grid-cols-[minmax(0,1fr)_26rem]">
+        <section className="relative min-h-[420px] lg:h-full lg:min-h-0">
           {meshAsset && primary ? (
             <Viewer3D
               asset={meshAsset}
@@ -261,7 +293,10 @@ export function Showcase({ setId }: { setId: string }) {
           )}
         </section>
 
-        <aside className="border-l border-line-soft bg-surface p-5" data-testid="chapter-panel">
+        <aside
+          className="border-l border-line-soft bg-surface p-5 lg:min-h-0 lg:overflow-y-auto"
+          data-testid="chapter-panel"
+        >
           {/* 챕터 네비 */}
           <nav className="flex items-center gap-2" aria-label="챕터 이동">
             <button
@@ -317,9 +352,11 @@ export function Showcase({ setId }: { setId: string }) {
               />
             )}
             {chapter.key === "glyph" && primary && (
-              <GlyphChapter cells={primary.glyphCells} focusId={FOCUS_CELL} />
+              <GlyphChapter cells={primary.glyphCells} focusId={focusCellId ?? ""} />
             )}
-            {chapter.key === "compare" && <CompareChapter details={data.details} />}
+            {chapter.key === "compare" && (
+              <CompareChapter details={data.details} focusId={focusCellId} />
+            )}
             {chapter.key === "evidence" && <EvidenceChapter details={data.details} />}
           </div>
         </aside>
@@ -456,12 +493,12 @@ function GlyphChapter({ cells, focusId }: { cells: GlyphCell[]; focusId: string 
   );
 }
 
-function CompareChapter({ details }: { details: TabDetail[] }) {
+function CompareChapter({ details, focusId }: { details: TabDetail[]; focusId: string | null }) {
   const tabIds = details.slice(0, 3).map((d) => d.tab.id);
-  const { data } = useQuery({
-    queryKey: ["showcase-matrix", tabIds],
-    queryFn: () => api.compareGlyphs({ glyphCellIds: [FOCUS_CELL], tabIds }),
-    enabled: tabIds.length >= 2,
+  const { data, isError } = useQuery({
+    queryKey: ["showcase-matrix", tabIds, focusId],
+    queryFn: () => api.compareGlyphs({ glyphCellIds: [focusId!], tabIds }),
+    enabled: tabIds.length >= 2 && Boolean(focusId),
   });
   const row = data?.rows?.[0];
   return (
@@ -470,7 +507,11 @@ function CompareChapter({ details }: { details: TabDetail[] }) {
         같은 자형이 다른 비석에서 어떻게 나타나는지 나란히 비교합니다 — 시대·서체·문맥이
         다른 <strong className="text-ink">가상 데모 자형</strong>들의 유사도입니다.
       </p>
-      {row ? (
+      {isError ? (
+        <p className="text-xs text-[var(--state-danger)]" role="alert">
+          비교 매트릭스를 불러오지 못했습니다.
+        </p>
+      ) : row ? (
         <div className="space-y-2" data-testid="showcase-matrix">
           {row.columns.map((col) => {
             const entry = col.cells[0];
@@ -510,7 +551,7 @@ function EvidenceChapter({ details }: { details: TabDetail[] }) {
   const cells = details.flatMap((d) => d.glyphCells);
   const byStatus = new Map<string, number>();
   for (const c of cells) byStatus.set(c.readingStatus, (byStatus.get(c.readingStatus) ?? 0) + 1);
-  const unknownCell = cells.find((c) => c.id === UNKNOWN_CELL);
+  const unknownCell = cells.find((c) => c.readingStatus === "UNKNOWN");
   return (
     <>
       <p>

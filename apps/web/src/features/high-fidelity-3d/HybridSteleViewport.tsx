@@ -1,10 +1,16 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useQuery } from "@tanstack/react-query";
-import type { GlyphCell, SceneLook, SteleAsset, TabUiState } from "@seokmun/types";
+import type {
+  AssetVariant,
+  GlyphCell,
+  SceneLook,
+  SteleAsset,
+  TabUiState,
+} from "@seokmun/types";
 import { chooseLodLevel, makeSurfaceField, type LodLevel } from "@seokmun/engine";
 import { resolveRenderer } from "./rendererFlag";
 import { DemoBadge } from "@/components/badges";
@@ -13,6 +19,8 @@ import { useStageMode } from "@/lib/store";
 import {
   buildClientSlab,
   glCounter,
+  parseSlabParams,
+  slabParamsFromBounds,
   webglSupported,
   type SlabParams,
 } from "./geometryClient";
@@ -26,8 +34,115 @@ import { BOOKMARK_LABEL, BOOKMARK_ORDER, bookmarkPose, type BookmarkName } from 
 import { GlyphDetailPatchLayer } from "./GlyphDetailPatchLayer";
 import { SplatLayer } from "./SplatLayer";
 import { ThreeDQualityPanel } from "./ThreeDQualityPanel";
+import {
+  VariantMeshLayer,
+  type VariantMeshSource,
+  type VariantMeshStatus,
+} from "./VariantMeshLayer";
 
 type RenderMode = TabUiState["renderMode"];
+
+const NUMERIC_UI_KEYS = [
+  "exposure",
+  "aoStrength",
+  "lightAzimuthDeg",
+  "lightElevationDeg",
+] as const;
+
+const DEFAULT_VIEW_PARAMS: SlabParams = {
+  width: 1.2,
+  height: 2.4,
+  depth: 0.22,
+  noiseSeed: 0,
+  noiseAmp: 0,
+};
+
+const FULL_MESH_VARIANTS = new Set<AssetVariant["variantType"]>([
+  "EVIDENCE_MESH_HIGH",
+  "EVIDENCE_MESH_MEDIUM",
+  "EVIDENCE_MESH_PREVIEW",
+  "PBR_MESH_HIGH",
+  "PBR_MESH_MEDIUM",
+  "PBR_MESH_PREVIEW",
+  "RAW_MESH",
+]);
+
+function presentationAssetUrl(asset: SteleAsset): string | null {
+  if (!asset.meshParams || typeof asset.meshParams !== "object") return null;
+  const url = asset.meshParams.presentationAssetUrl;
+  return typeof url === "string" && url.length > 0 ? url : null;
+}
+
+function presentationAssetBounds(asset: SteleAsset): AssetVariant["bounds"] {
+  if (!asset.meshParams || typeof asset.meshParams !== "object") return null;
+  const value = asset.meshParams.presentationAssetBounds;
+  if (!value || typeof value !== "object") return null;
+  const bounds = value as { min?: unknown; max?: unknown };
+  const validTuple = (tuple: unknown): tuple is [number, number, number] =>
+    Array.isArray(tuple) &&
+    tuple.length === 3 &&
+    tuple.every((entry) => typeof entry === "number" && Number.isFinite(entry));
+  return validTuple(bounds.min) && validTuple(bounds.max)
+    ? { min: bounds.min, max: bounds.max }
+    : null;
+}
+
+function variantLodScore(variant: AssetVariant, lod: LodLevel): number {
+  const suffix = lod === "FULL" ? "HIGH" : lod === "MEDIUM" ? "MEDIUM" : "PREVIEW";
+  if (variant.variantType.endsWith(suffix)) return 30;
+  if (variant.variantType.endsWith("HIGH")) return lod === "MEDIUM" ? 18 : 8;
+  if (variant.variantType.endsWith("MEDIUM")) return 20;
+  if (variant.variantType.endsWith("PREVIEW")) return 5;
+  return 0;
+}
+
+function variantMatchesRepresentation(
+  variant: AssetVariant,
+  representation: TabUiState["representation"]
+): boolean {
+  if (representation === "PBR_PRESENTATION") {
+    return variant.variantType.startsWith("PBR_");
+  }
+  if (representation === "RESEARCH_EVIDENCE") {
+    return (
+      variant.variantType.startsWith("EVIDENCE_") ||
+      (variant.variantType === "RAW_MESH" && variant.measurementAllowed)
+    );
+  }
+  if (representation === "UNLIT_ORIGINAL") {
+    return variant.variantType.startsWith("EVIDENCE_") || variant.variantType === "RAW_MESH";
+  }
+  return true;
+}
+
+function chooseServerVariant(
+  variants: AssetVariant[],
+  activeVariantId: string | null,
+  representation: TabUiState["representation"],
+  lod: LodLevel
+): AssetVariant | null {
+  const renderable = variants.filter(
+    (variant) =>
+      variant.format.toUpperCase() === "GLB" &&
+      Boolean(variant.storageKey) &&
+      variant.glyphCellId === null &&
+      FULL_MESH_VARIANTS.has(variant.variantType)
+  );
+  const compatible = renderable.filter((variant) =>
+    variantMatchesRepresentation(variant, representation)
+  );
+  const active = compatible.find((variant) => variant.id === activeVariantId);
+  if (active) return active;
+
+  const wantPbr = representation === "PBR_PRESENTATION";
+  return (
+    [...compatible].sort((a, b) => {
+      const familyA = a.variantType.startsWith(wantPbr ? "PBR_" : "EVIDENCE_") ? 100 : 0;
+      const familyB = b.variantType.startsWith(wantPbr ? "PBR_" : "EVIDENCE_") ? 100 : 0;
+      return familyB + variantLodScore(b, lod) - (familyA + variantLodScore(a, lod));
+    })[0] ?? null
+  );
+}
 
 /** 자동 LOD — 화면 공간 크기 + 히스테리시스 (엔진 순수 함수 사용) */
 function AutoLodBridge({
@@ -98,6 +213,40 @@ function StatsBridge({ gpuBytesEstimate }: { gpuBytesEstimate: number }) {
     }, 1000);
     return () => clearInterval(timer);
   }, [gl, gpuBytesEstimate]);
+  return null;
+}
+
+/** 실제 WebGL renderer 생성과 context loss를 계측한다 (E2E·누수 진단용). */
+function GlLifecycleBridge() {
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    const counter = glCounter();
+    if (counter) {
+      counter.active++;
+      counter.created++;
+    }
+
+    const canvas = gl.domElement;
+    let recordedDisposed = false;
+    let fallbackTimer: number | null = null;
+    const recordDisposed = () => {
+      if (recordedDisposed) return;
+      recordedDisposed = true;
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+      canvas.removeEventListener("webglcontextlost", recordDisposed);
+      const current = glCounter();
+      if (current) current.disposed++;
+    };
+    canvas.addEventListener("webglcontextlost", recordDisposed, { once: true });
+
+    return () => {
+      const current = glCounter();
+      if (current) current.active = Math.max(0, current.active - 1);
+      // R3F는 subtree 정리 뒤 약 500ms에 forceContextLoss를 호출한다.
+      // 이벤트를 받을 수 없는 드라이버에서도 계측이 영구 대기하지 않도록 보조 타이머를 둔다.
+      if (!recordedDisposed) fallbackTimer = window.setTimeout(recordDisposed, 1_500);
+    };
+  }, [gl]);
   return null;
 }
 
@@ -374,10 +523,17 @@ export function Viewer3D({
   });
   const applySceneLook = useCallback(
     (look: SceneLook) => {
+      setNumOverride({});
+      pendingRef.current = {};
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       setToneMappingChoice(look.toneMapping);
       onUiStateChange({
         lightingPreset: look.lightingPreset,
         representation: look.representation,
+        activeVariantId: null,
         exposure: look.exposure,
         aoStrength: look.aoStrength,
         lightAzimuthDeg: look.lightAzimuthDeg,
@@ -387,6 +543,20 @@ export function Viewer3D({
     [onUiStateChange]
   );
   const [meshInfo, setMeshInfo] = useState({ triangles: 0, vertices: 0, gpuBytes: 0 });
+  const { data: variants = [] } = useQuery({
+    queryKey: ["3d-variants", asset.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/3d/assets/${asset.id}/variants`);
+      if (!response.ok) throw new Error(`3D variant 로딩 실패 (${response.status})`);
+      return (await response.json()) as AssetVariant[];
+    },
+    staleTime: 30_000,
+  });
+  const [variantStatus, setVariantStatus] = useState<VariantMeshStatus>({
+    state: "IDLE",
+    source: null,
+    error: null,
+  });
   const [patchStatus, setPatchStatus] = useState<{
     loading: boolean;
     loaded: string[];
@@ -398,31 +568,27 @@ export function Viewer3D({
     error: string | null;
   }>({ loading: false, count: null, error: null });
   const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const stageDescriptionId = useId();
 
   useEffect(() => setWebgl(webglSupported()), []);
-  useEffect(() => {
-    if (!webgl) return;
-    const counter = glCounter();
-    if (counter) {
-      counter.active++;
-      counter.created++;
-    }
-    return () => {
-      const c = glCounter();
-      if (c) {
-        c.active--;
-        c.disposed++;
-      }
-    };
-  }, [webgl]);
-
-  const params = asset.meshParams as unknown as SlabParams;
+  const proceduralParams = useMemo(() => parseSlabParams(asset.meshParams), [asset.meshParams]);
+  const staticPresentationUrl = useMemo(() => presentationAssetUrl(asset), [asset.meshParams]);
+  const staticPresentationBounds = useMemo(
+    () => presentationAssetBounds(asset),
+    [asset.meshParams]
+  );
 
   // 하위 호환: 구버전 renderMode=RAKING_LIGHT → 사광 프리셋
   const legacyRaking = uiState.renderMode === "RAKING_LIGHT";
   const lightingPreset = legacyRaking ? "RAKING" : (uiState.lightingPreset ?? "MUSEUM_NEUTRAL");
   const representation = uiState.representation ?? "PBR_PRESENTATION";
-  const renderMode: RenderMode = legacyRaking ? "ALBEDO" : (uiState.renderMode ?? "ALBEDO");
+  const requestedRenderMode: RenderMode = legacyRaking
+    ? "ALBEDO"
+    : (uiState.renderMode ?? "ALBEDO");
+  const analysisUnavailable =
+    !proceduralParams &&
+    (requestedRenderMode === "CURVATURE" || requestedRenderMode === "DEPTH");
+  const renderMode: RenderMode = analysisUnavailable ? "ALBEDO" : requestedRenderMode;
   const cameraMode = uiState.cameraMode ?? "PERSPECTIVE_MUSEUM";
 
   // 슬라이더 값: 드래그 중 즉시 반영(로컬) + 서버 저장은 스로틀
@@ -431,22 +597,82 @@ export function Viewer3D({
   >({});
   const pendingRef = useRef<Partial<TabUiState>>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushPending = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    const pending = pendingRef.current;
+    pendingRef.current = {};
+    if (Object.keys(pending).length > 0) {
+      setNumOverride((current) => {
+        let changed = false;
+        const next = { ...current };
+        for (const key of NUMERIC_UI_KEYS) {
+          if (pending[key] !== undefined && Object.is(pending[key], uiState[key])) {
+            delete next[key];
+            changed = true;
+          }
+        }
+        return changed ? next : current;
+      });
+      onUiStateChange(pending);
+    }
+  }, [
+    onUiStateChange,
+    uiState.exposure,
+    uiState.aoStrength,
+    uiState.lightAzimuthDeg,
+    uiState.lightElevationDeg,
+  ]);
   const changeNumber = useCallback(
     (patch: Partial<TabUiState>) => {
       setNumOverride((o) => ({ ...o, ...patch }));
       pendingRef.current = { ...pendingRef.current, ...patch };
       if (timerRef.current) return;
-      timerRef.current = setTimeout(() => {
-        onUiStateChange(pendingRef.current);
-        pendingRef.current = {};
-        timerRef.current = null;
-      }, 300);
+      timerRef.current = setTimeout(flushPending, 300);
     },
-    [onUiStateChange]
+    [flushPending]
   );
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+  useEffect(() => () => flushPending(), [flushPending]);
+
+  useEffect(() => {
+    pendingRef.current = {};
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setNumOverride({});
+  }, [asset.id]);
+
+  useEffect(() => {
+    setNumOverride((current) => {
+      let changed = false;
+      const next = { ...current };
+      const syncedValues = {
+        exposure: uiState.exposure,
+        aoStrength: uiState.aoStrength,
+        lightAzimuthDeg: uiState.lightAzimuthDeg,
+        lightElevationDeg: uiState.lightElevationDeg,
+      };
+      for (const key of NUMERIC_UI_KEYS) {
+        if (
+          current[key] !== undefined &&
+          pendingRef.current[key] === undefined &&
+          Object.is(current[key], syncedValues[key])
+        ) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [
+    uiState.exposure,
+    uiState.aoStrength,
+    uiState.lightAzimuthDeg,
+    uiState.lightElevationDeg,
+  ]);
 
   const aoStrength = numOverride.aoStrength ?? uiState.aoStrength ?? 0.6;
   const exposure = numOverride.exposure ?? uiState.exposure ?? 1;
@@ -464,6 +690,129 @@ export function Viewer3D({
 
   // AUTO면 화면 공간 기준 자동값, 아니면 사용자 지정 LOD
   const effectiveLod: LodLevel = uiState.lodLevel === "AUTO" ? autoLod : uiState.lodLevel;
+  const selectedServerVariant = useMemo(
+    () => chooseServerVariant(variants, uiState.activeVariantId, representation, effectiveLod),
+    [variants, uiState.activeVariantId, representation, effectiveLod]
+  );
+  const useProceduralAnalysis =
+    Boolean(proceduralParams) && (renderMode === "CURVATURE" || renderMode === "DEPTH");
+  const meshSource = useMemo<VariantMeshSource | null>(() => {
+    if (useProceduralAnalysis) return null;
+    const explicitVariant = selectedServerVariant?.id === uiState.activeVariantId;
+    if (
+      !explicitVariant &&
+      staticPresentationUrl &&
+      representation === "PBR_PRESENTATION" &&
+      renderMode === "ALBEDO"
+    ) {
+      return {
+        key: `blender:${staticPresentationUrl}`,
+        url: staticPresentationUrl,
+        kind: "STATIC_BLENDER",
+        label: "Blender 정적 프레젠테이션 GLB",
+        variant: null,
+        bounds: staticPresentationBounds,
+      };
+    }
+    if (!selectedServerVariant) return null;
+    return {
+      key: `variant:${selectedServerVariant.id}`,
+      url: `/api/3d/variants/${selectedServerVariant.id}/file`,
+      kind: "SERVER_VARIANT",
+      label: `${selectedServerVariant.variantType} · ${selectedServerVariant.sourceState}`,
+      variant: selectedServerVariant,
+      bounds: selectedServerVariant.bounds,
+    };
+  }, [
+    renderMode,
+    representation,
+    selectedServerVariant,
+    staticPresentationBounds,
+    staticPresentationUrl,
+    uiState.activeVariantId,
+    useProceduralAnalysis,
+  ]);
+  const params = useMemo(
+    () =>
+      (meshSource?.kind === "STATIC_BLENDER" ? slabParamsFromBounds(meshSource.bounds) : null) ??
+      proceduralParams ??
+      slabParamsFromBounds(meshSource?.bounds) ??
+      slabParamsFromBounds(asset.qualityReport?.boundingBox) ??
+      DEFAULT_VIEW_PARAMS,
+    [proceduralParams, meshSource?.bounds, asset.qualityReport?.boundingBox]
+  );
+  const changeCameraMode = useCallback(
+    (next: (typeof CAMERA_MODES)[number][0]) => {
+      const needsEvidenceCoordinates =
+        !exhibition &&
+        next === "GLYPH_FOCUS" &&
+        Boolean(selectedId) &&
+        Boolean(proceduralParams) &&
+        meshSource?.kind === "STATIC_BLENDER";
+      onUiStateChange({
+        cameraMode: next,
+        ...(needsEvidenceCoordinates
+          ? { representation: "RESEARCH_EVIDENCE" as const, activeVariantId: null }
+          : {}),
+      });
+    },
+    [exhibition, meshSource?.kind, onUiStateChange, proceduralParams, selectedId]
+  );
+  const glbReady =
+    variantStatus.state === "READY" && variantStatus.source?.key === meshSource?.key;
+  const serverEvidenceReady =
+    glbReady && meshSource?.kind === "SERVER_VARIANT" && meshSource.variant?.measurementAllowed;
+  const mountProcedural = Boolean(proceduralParams) && !serverEvidenceReady;
+  const proceduralVisible = meshVisible && (useProceduralAnalysis || !glbReady);
+  const variantVisible = meshVisible && !useProceduralAnalysis;
+  const canvasGlOptions = useMemo(
+    () => ({
+      powerPreference:
+        tier === "MOBILE" || tier === "BATTERY_SAVER"
+          ? ("low-power" as const)
+          : ("high-performance" as const),
+      antialias: tier !== "BATTERY_SAVER",
+      alpha: true,
+    }),
+    [tier]
+  );
+  const activateVariant = useCallback(
+    (variant: AssetVariant) => {
+      const nextRepresentation = variant.variantType.startsWith("PBR_")
+        ? "PBR_PRESENTATION"
+        : variant.measurementAllowed
+          ? "RESEARCH_EVIDENCE"
+          : "UNLIT_ORIGINAL";
+      onUiStateChange({
+        activeVariantId: variant.id,
+        representation: nextRepresentation,
+      });
+    },
+    [onUiStateChange]
+  );
+  const changeRepresentation = useCallback(
+    (nextRepresentation: TabUiState["representation"]) => {
+      const activeVariant = variants.find((variant) => variant.id === uiState.activeVariantId);
+      onUiStateChange({
+        representation: nextRepresentation,
+        activeVariantId:
+          activeVariant && variantMatchesRepresentation(activeVariant, nextRepresentation)
+            ? activeVariant.id
+            : null,
+      });
+    },
+    [onUiStateChange, uiState.activeVariantId, variants]
+  );
+  const currentSourceLabel = glbReady && meshSource
+    ? meshSource.label
+    : proceduralParams
+      ? "클라이언트 절차 생성 폴백"
+      : asset.provenance === "REAL_USER_UPLOAD"
+        ? `업로드 원본 · ${asset.originalFilename ?? asset.format ?? asset.id}`
+        : "표시 가능한 GLB 준비 필요";
+  const measurementAllowed =
+    representation === "RESEARCH_EVIDENCE" &&
+    (glbReady ? meshSource?.variant?.measurementAllowed === true : Boolean(proceduralParams));
 
   // 단발성 캡처 경로 (CaptureBridge가 채움) — preserveDrawingBuffer 상시 활성 금지
   const captureFnRef = useRef<(() => string) | null>(null);
@@ -477,7 +826,9 @@ export function Viewer3D({
   const flySeq = useRef(0);
   const goBookmark = useCallback(
     (name: BookmarkName) => {
-      const pose = bookmarkPose(name, params, cells, selectedId);
+      const rect = canvasWrapRef.current?.getBoundingClientRect();
+      const aspect = rect ? rect.width / Math.max(1, rect.height) : 1;
+      const pose = bookmarkPose(name, params, cells, selectedId, aspect);
       flySeq.current += 1;
       setFlyTo({ ...pose, duration: 0.7, seq: flySeq.current });
     },
@@ -491,9 +842,33 @@ export function Viewer3D({
     x: 200,
     y: 200,
   });
+  const magnifierPointerRef = useRef({ x: 200, y: 200 });
+  const magnifierRafRef = useRef<number | null>(null);
+  const queueMagnifierPosition = useCallback((x: number, y: number) => {
+    magnifierPointerRef.current = { x, y };
+    if (magnifierRafRef.current !== null) return;
+    magnifierRafRef.current = window.requestAnimationFrame(() => {
+      const next = magnifierPointerRef.current;
+      setMagnifier((current) =>
+        current.x === next.x && current.y === next.y
+          ? current
+          : { ...current, x: next.x, y: next.y }
+      );
+      magnifierRafRef.current = null;
+    });
+  }, []);
   const cycleZoom = useCallback(() => {
     setMagnifier((m) => ({ ...m, zoom: m.zoom === 2 ? 4 : m.zoom === 4 ? 8 : 2 }));
   }, []);
+
+  useEffect(
+    () => () => {
+      if (magnifierRafRef.current !== null) {
+        window.cancelAnimationFrame(magnifierRafRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -559,10 +934,11 @@ export function Viewer3D({
           모드 전환은 표시 계층만 바꾸며 카메라·선택·탭 상태를 건드리지 않는다. */}
       {exhibition ? (
         <div
-          className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]"
+          className="flex items-center gap-2 overflow-x-auto border-b border-line-soft bg-surface px-3 py-2 text-[11px]"
           data-testid="exhibition-toolbar"
         >
-          <span className="text-ink-3">조명</span>
+          <span className="section-label shrink-0">전시 연출</span>
+          <span className="shrink-0 text-ink-3">조명</span>
           {(["MUSEUM_NEUTRAL", "FIELD_DAYLIGHT", "RAKING"] as const).map((key) => (
             <button
               key={key}
@@ -575,38 +951,38 @@ export function Viewer3D({
               {LIGHTING_PRESETS[key].label}
             </button>
           ))}
-          <span className="ml-2 text-ink-3">카메라</span>
+          <span className="ml-2 shrink-0 text-ink-3">시점</span>
           {CAMERA_MODES.map(([key, label]) => (
             <button
               key={key}
               data-testid={`cam-${key}`}
               aria-pressed={cameraMode === key}
-              onClick={() => onUiStateChange({ cameraMode: key })}
+              onClick={() => changeCameraMode(key)}
               className={`badge ${cameraMode === key ? "badge-demo" : "badge-neutral"}`}
             >
               {label}
             </button>
           ))}
-          <span className="ml-auto text-ink-3">
+          <span className="ml-auto shrink-0 rounded-full bg-surface-muted px-2 py-1 text-ink-3">
             표시 설정 전용 — 측정·판독 기준은 연구 보기
           </span>
         </div>
       ) : (
       <>
-      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]">
-        <span className="text-ink-3">표현</span>
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-line-soft bg-surface px-3 py-2 text-[11px]">
+        <span className="section-label shrink-0">표현 기준</span>
         {REPRESENTATIONS.map(([key, label]) => (
           <button
             key={key}
             data-testid={`rep-${key}`}
             aria-pressed={representation === key}
-            onClick={() => onUiStateChange({ representation: key })}
+            onClick={() => changeRepresentation(key)}
             className={`badge ${representation === key ? "badge-demo" : "badge-neutral"}`}
           >
             {label}
           </button>
         ))}
-        <span className="ml-2 text-ink-3">조명</span>
+        <span className="ml-2 shrink-0 text-ink-3">조명 환경</span>
         {(Object.keys(LIGHTING_PRESETS) as Array<keyof typeof LIGHTING_PRESETS>).map((key) => (
           <button
             key={key}
@@ -619,34 +995,41 @@ export function Viewer3D({
             {LIGHTING_PRESETS[key].label}
           </button>
         ))}
-        <span className="ml-2 text-ink-3">분석</span>
+        <span className="ml-2 shrink-0 text-ink-3">표면 분석</span>
         {ANALYSIS_MODES.map(([key, label]) => (
           <button
             key={key}
             data-testid={`mode-${key}`}
             aria-pressed={renderMode === key}
             onClick={() => onUiStateChange({ renderMode: key })}
-            className={`badge ${renderMode === key ? "badge-demo" : "badge-neutral"}`}
+            disabled={!proceduralParams && (key === "CURVATURE" || key === "DEPTH")}
+            className={`badge disabled:opacity-40 ${renderMode === key ? "badge-demo" : "badge-neutral"}`}
+            title={
+              !proceduralParams && (key === "CURVATURE" || key === "DEPTH")
+                ? "절차 표면 필드가 있는 자산에서만 사용할 수 있습니다."
+                : undefined
+            }
           >
             {label}
           </button>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--panel-border)] bg-surface-muted px-2 py-1 text-[11px]">
-        <span className="text-ink-3">카메라</span>
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-line-soft bg-surface-2 px-3 py-2 text-[11px]">
+        <span className="section-label shrink-0">관찰 설정</span>
+        <span className="shrink-0 text-ink-3">시점</span>
         {CAMERA_MODES.map(([key, label]) => (
           <button
             key={key}
             data-testid={`cam-${key}`}
             aria-pressed={cameraMode === key}
-            onClick={() => onUiStateChange({ cameraMode: key })}
+            onClick={() => changeCameraMode(key)}
             className={`badge ${cameraMode === key ? "badge-demo" : "badge-neutral"}`}
           >
             {label}
           </button>
         ))}
         <label className="ml-1 flex items-center gap-1">
-          <span className="text-ink-3">품질</span>
+          <span className="text-ink-3">렌더 품질</span>
           <select
             value={uiState.qualityTier ?? "AUTO"}
             onChange={(e) => onUiStateChange({ qualityTier: e.target.value as TabUiState["qualityTier"] })}
@@ -698,6 +1081,8 @@ export function Viewer3D({
           <input
             type="range" min={0.4} max={2} step={0.05} value={exposure}
             onChange={(e) => changeNumber({ exposure: Number(e.target.value) })}
+            onPointerUp={flushPending}
+            onBlur={flushPending}
             className="w-16" aria-label="노출"
           />
           <span className="tabular-nums">{exposure.toFixed(2)}</span>
@@ -707,6 +1092,8 @@ export function Viewer3D({
           <input
             type="range" min={0} max={1.2} step={0.05} value={aoStrength}
             onChange={(e) => changeNumber({ aoStrength: Number(e.target.value) })}
+            onPointerUp={flushPending}
+            onBlur={flushPending}
             className="w-16" aria-label="AO 강도" data-testid="ao-slider"
           />
           <span className="tabular-nums" data-testid="ao-value">{aoStrength.toFixed(2)}</span>
@@ -718,6 +1105,8 @@ export function Viewer3D({
               <input
                 type="range" min={0} max={360} step={5} value={azimuth}
                 onChange={(e) => changeNumber({ lightAzimuthDeg: Number(e.target.value) })}
+                onPointerUp={flushPending}
+                onBlur={flushPending}
                 className="w-20" aria-label="사광 방위각" data-testid="raking-azimuth"
               />
               <span className="tabular-nums">{azimuth}°</span>
@@ -727,6 +1116,8 @@ export function Viewer3D({
               <input
                 type="range" min={2} max={60} step={2} value={elevation}
                 onChange={(e) => changeNumber({ lightElevationDeg: Number(e.target.value) })}
+                onPointerUp={flushPending}
+                onBlur={flushPending}
                 className="w-16" aria-label="사광 고도"
               />
               <span className="tabular-nums">{elevation}°</span>
@@ -735,21 +1126,21 @@ export function Viewer3D({
         )}
         <button
           onClick={() => setPanelOpen((v) => !v)}
-          className={`badge ml-auto ${panelOpen ? "badge-demo" : "badge-neutral"}`}
+          className={`badge ml-auto shrink-0 ${panelOpen ? "badge-demo" : "badge-neutral"}`}
           data-testid="quality-panel-toggle"
         >
-          3D 품질
+          품질 보고서
         </button>
-        <button onClick={() => void captureReference()} className="badge badge-neutral" data-testid="save-reference">
-          기준 렌더 저장
+        <button onClick={() => void captureReference()} className="badge badge-neutral shrink-0" data-testid="save-reference">
+          기준 렌더
         </button>
       </div>
       </>
       )}
 
       {/* 관찰 도구 행 — 카메라 북마크(1–5) · 확대경(M) · 촬영 (양 모드 공통) */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--panel-border)] bg-surface px-2 py-1 text-[11px]">
-        <span className="text-ink-3">북마크</span>
+      <div className="flex items-center gap-1.5 overflow-x-auto border-b border-line-soft bg-surface px-3 py-2 text-[11px]">
+        <span className="section-label shrink-0">빠른 시점</span>
         {BOOKMARK_ORDER.map((name, i) => (
           <button
             key={name}
@@ -761,7 +1152,7 @@ export function Viewer3D({
             {i + 1} {BOOKMARK_LABEL[name]}
           </button>
         ))}
-        <span className="ml-2 text-ink-3">확대경</span>
+        <span className="ml-2 shrink-0 text-ink-3">확대경</span>
         <button
           data-testid="magnifier-toggle"
           aria-pressed={magnifier.active}
@@ -784,9 +1175,9 @@ export function Viewer3D({
         <button
           data-testid="screenshot-composer-open"
           onClick={() => setComposerOpen((v) => !v)}
-          className={`badge ml-auto ${composerOpen ? "badge-demo" : "badge-neutral"}`}
+          className={`badge ml-auto shrink-0 ${composerOpen ? "badge-demo" : "badge-neutral"}`}
         >
-          촬영
+          이미지 내보내기
         </button>
       </div>
 
@@ -794,6 +1185,9 @@ export function Viewer3D({
         ref={canvasWrapRef}
         className="relative min-h-0 flex-1 cursor-grab active:cursor-grabbing"
         data-testid="stele-stage"
+        role="region"
+        aria-label={`${asset.demoLabel ?? asset.id} 3D 비석 뷰어`}
+        aria-describedby={stageDescriptionId}
         style={{
           // CSS cyclorama — 캔버스는 투명, 무대 배경은 표시 계층 (검은 배경 금지)
           background: `linear-gradient(180deg, ${stageColors.top} 0%, ${stageColors.bottom} 100%)`,
@@ -802,16 +1196,22 @@ export function Viewer3D({
         onPointerMove={(e) => {
           if (!magnifier.active || !canvasWrapRef.current) return;
           const rect = canvasWrapRef.current.getBoundingClientRect();
-          setMagnifier((m) => ({ ...m, x: e.clientX - rect.left, y: e.clientY - rect.top }));
+          queueMagnifierPosition(e.clientX - rect.left, e.clientY - rect.top);
         }}
         onPointerDown={() => onUserInteract?.()}
       >
+        <p id={stageDescriptionId} className="sr-only">
+          마우스 또는 터치로 비석을 회전하고 확대할 수 있습니다. 숫자 1부터 5는 카메라
+          북마크, M 키는 확대경을 전환합니다. 가상 데모 자산은 실제 유물 측정 자료가
+          아닙니다.
+        </p>
         <Canvas
           frameloop="demand"
           shadows={tierConfig.shadowMapSize > 0}
           dpr={tierConfig.dpr}
-          gl={{ powerPreference: "low-power", antialias: true, alpha: true }}
+          gl={canvasGlOptions}
         >
+          <GlLifecycleBridge />
           <SteleLightingRig
             preset={lightingPreset}
             azimuthDeg={azimuth}
@@ -822,7 +1222,12 @@ export function Viewer3D({
             groundY={-params.height / 2 - 0.02}
             toneMapping={toneMappingChoice}
           />
-          {exhibition && meshVisible && <PresentationStage params={params} />}
+          {exhibition && meshVisible && (
+            <PresentationStage
+              params={params}
+              includePlinth={!(glbReady && meshSource?.kind === "STATIC_BLENDER")}
+            />
+          )}
           <SteleCameraRig
             mode={cameraMode}
             params={params}
@@ -842,26 +1247,46 @@ export function Viewer3D({
             />
           )}
           {magnifier.active && <MagnifierLens state={magnifier} />}
-          <SteleMeshLayer
+          {mountProcedural && proceduralParams && (
+            <SteleMeshLayer
+              params={proceduralParams}
+              cells={cells}
+              lod={effectiveLod}
+              renderMode={renderMode}
+              representation={representation}
+              aoStrength={aoStrength}
+              visible={proceduralVisible}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              onBuilt={setMeshInfo}
+            />
+          )}
+          <VariantMeshLayer
+            source={meshSource}
             params={params}
             cells={cells}
-            lod={effectiveLod}
             renderMode={renderMode}
             representation={representation}
-            aoStrength={aoStrength}
-            visible={meshVisible}
+            roughness={representation === "RESEARCH_EVIDENCE" ? 0.95 : 0.8}
+            visible={variantVisible}
             selectedId={selectedId}
             onSelect={onSelect}
+            onStatus={setVariantStatus}
             onBuilt={setMeshInfo}
           />
-          {meshVisible && renderMode === "ALBEDO" && tierConfig.maxDetailPatches > 0 && (
+          {proceduralParams &&
+            meshVisible &&
+            renderMode === "ALBEDO" &&
+            meshSource?.kind !== "STATIC_BLENDER" &&
+            tierConfig.maxDetailPatches > 0 && (
             <GlyphDetailPatchLayer
               assetId={asset.id}
-              params={params}
+              params={proceduralParams}
               cells={cells}
               selectedId={selectedId}
               maxPatches={tierConfig.maxDetailPatches}
               roughness={representation === "RESEARCH_EVIDENCE" ? 0.95 : 0.8}
+              unlit={representation === "UNLIT_ORIGINAL"}
               onStatus={setPatchStatus}
             />
           )}
@@ -878,15 +1303,42 @@ export function Viewer3D({
 
         {/* 배지·상태 오버레이 */}
         <div className="pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1">
-          <DemoBadge label={asset.demoLabel ?? "가상 데모 메시"} />
-          <span className="badge badge-neutral">실제 유물 3D 아님 · 절차 생성 데모</span>
+          {asset.provenance === "VIRTUAL_DEMO" && (
+            <>
+              <DemoBadge label={asset.demoLabel ?? "가상 데모 메시"} />
+              <span className="badge badge-neutral">실제 유물 3D 아님 · 가상 데모</span>
+            </>
+          )}
+          {asset.provenance === "REAL_USER_UPLOAD" && (
+            <span className="badge badge-neutral">
+              원본 · 사용자 업로드 {asset.originalFilename ?? asset.format ?? asset.id}
+            </span>
+          )}
+          <span className="badge badge-neutral" data-testid="mesh-source-badge">
+            3D 소스 · {currentSourceLabel}
+          </span>
+          {variantStatus.state === "LOADING" && (
+            <span className="badge badge-warn">GLB 스트리밍 중…</span>
+          )}
+          {variantStatus.state === "ERROR" && (
+            <span className="badge badge-warn">GLB 실패 · {variantStatus.error}</span>
+          )}
+          {analysisUnavailable && (
+            <span className="badge badge-warn">
+              곡률·깊이 분석 불가 · 표면 필드가 없어 기본 재질로 표시
+            </span>
+          )}
           {representation === "SPLAT" && (
             <span className="badge badge-warn" data-testid="splat-warning">
               Splat = 표시 전용 · 측정/판독 기준 아님 (선택은 Evidence 좌표 사용)
             </span>
           )}
           {representation === "RESEARCH_EVIDENCE" && (
-            <span className="badge badge-ok">실측 기준 표현(가상 단위) · 측정 허용</span>
+            <span className={`badge ${measurementAllowed ? "badge-ok" : "badge-warn"}`}>
+              {measurementAllowed
+                ? "근거 메시 기준 · 좌표 측정 허용"
+                : "측정 가능한 Evidence GLB 준비 필요"}
+            </span>
           )}
           {representation === "PBR_PRESENTATION" && (
             <span className="badge badge-neutral">표현 보강(PBR) — 판독 기준은 연구형</span>
@@ -932,6 +1384,13 @@ export function Viewer3D({
           )}
           <span className="badge badge-neutral">상대 크기 · 가상 단위 — mm 환산 없음</span>
         </div>
+        <div className="pointer-events-none absolute bottom-2 right-2 hidden items-center gap-2 rounded-full border border-white/40 bg-[var(--surface-elevated)] px-2.5 py-1 text-[10px] text-ink-2 shadow-[var(--shadow-xs)] backdrop-blur sm:flex">
+          <span>드래그 회전</span>
+          <span className="text-line-strong">·</span>
+          <span>휠 확대</span>
+          <span className="text-line-strong">·</span>
+          <span>글자 클릭</span>
+        </div>
         {/* 확대경 링 오버레이 — 렌즈 렌더 영역 표시 + LOD·패치 상태 */}
         {magnifier.active && canvasWrapRef.current && (() => {
           const rect = canvasWrapRef.current.getBoundingClientRect();
@@ -964,8 +1423,10 @@ export function Viewer3D({
               lightingPreset,
               renderMode,
               toneMapping: toneMappingChoice,
-              measurementAllowed: representation === "RESEARCH_EVIDENCE",
-              source: "VIRTUAL_DEMO — 실제 유물 3D 아님",
+              measurementAllowed,
+              source: `${currentSourceLabel}${
+                asset.provenance === "VIRTUAL_DEMO" ? " · VIRTUAL_DEMO — 실제 유물 3D 아님" : ""
+              }`,
               camera: uiState.camera ?? null,
             }}
           />
@@ -977,6 +1438,9 @@ export function Viewer3D({
             lod={effectiveLod}
             tier={tier}
             meshInfo={meshInfo}
+            measurementAllowed={measurementAllowed}
+            activeVariantId={uiState.activeVariantId}
+            onActivateVariant={activateVariant}
             onClose={() => setPanelOpen(false)}
           />
         )}

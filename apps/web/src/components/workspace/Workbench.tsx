@@ -1,14 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import type { TabUiState } from "@seokmun/types";
 import type { TabDetail } from "@/lib/api";
 import { DemoBadge, RightsBadge } from "@/components/badges";
 import { ASSET_MODE_LABEL } from "@/lib/labels";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
-import { Viewer3D } from "@/features/high-fidelity-3d/HybridSteleViewport";
-import { FragmentViewer } from "@/components/three/FragmentViewer";
 import { SourceCardPanel } from "./SourceCardPanel";
+import { Icon } from "@/components/ui/Icon";
+
+const Viewer3D = dynamic(
+  () =>
+    import("@/features/high-fidelity-3d/HybridSteleViewport").then(
+      (module) => module.Viewer3D
+    ),
+  {
+    ssr: false,
+    loading: () => <div className="p-6 text-sm text-ink-2">3D 뷰어 불러오는 중…</div>,
+  }
+);
+
+const FragmentViewer = dynamic(
+  () => import("@/components/three/FragmentViewer").then((module) => module.FragmentViewer),
+  {
+    ssr: false,
+    loading: () => <div className="p-6 text-sm text-ink-2">파편 뷰어 불러오는 중…</div>,
+  }
+);
 
 function TranscriptionViewer({
   detail,
@@ -131,12 +150,17 @@ export function Workbench({
   onUiStateChange: (patch: Partial<TabUiState>) => void;
 }) {
   const [view, setView] = useState<"work" | "sources">("work");
-  const meshAsset = detail.assets.find(
-    (a) => a.assetType === "MESH" && a.format === "PROCEDURAL_MESH"
-  );
+  const meshAsset = detail.assets.find((a) => a.assetType === "MESH");
   const fragmentAssets = detail.assets.filter(
     (a) => a.format === "PROCEDURAL_FRAGMENT"
   );
+  const workContext = fragmentAssets.length >= 2
+    ? { label: "파편 정합", description: "분리된 파편의 위치와 접합 관계를 비교합니다." }
+    : meshAsset
+      ? { label: "3D 표면 관찰", description: "조명·시점·표현을 바꿔 표면 흔적을 검토합니다." }
+      : detail.glyphCells.length > 0
+        ? { label: "판독문 검토", description: "행별 문자 영역과 판독 상태를 확인합니다." }
+        : { label: "메타데이터 검토", description: "공개 사실·제한·연구 질문을 확인합니다." };
 
   let center: React.ReactNode;
   if (view === "sources") {
@@ -171,26 +195,44 @@ export function Workbench({
   }
 
   return (
-    <div className="flex h-full flex-col" data-testid="workbench">
-      <div className="flex items-center gap-1 border-b border-[var(--panel-border)] px-2 py-1 text-xs">
-        <button
-          onClick={() => setView("work")}
-          className={`badge ${view === "work" ? "badge-demo" : "badge-neutral"}`}
-          data-testid="workbench-view-work"
-        >
-          작업대
-        </button>
-        <button
-          onClick={() => setView("sources")}
-          className={`badge ${view === "sources" ? "badge-demo" : "badge-neutral"}`}
-          data-testid="workbench-view-sources"
-        >
-          Source Card · 자산
-        </button>
-        <span className="ml-auto text-ink-3" title={detail.tab.assetMode}>
-          자산 모드 {ASSET_MODE_LABEL[detail.tab.assetMode]} ({detail.tab.assetMode})
-        </span>
-      </div>
+    <div className="flex h-full flex-col bg-surface" data-testid="workbench">
+      <header className="border-b border-line-soft bg-[var(--surface-elevated)] px-3 py-2.5 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0">
+            <p className="section-label">Step 2 · Observe</p>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+              <h2 className="text-sm font-bold">{view === "work" ? workContext.label : "출처·자산 검토"}</h2>
+              <p className="text-[11px] text-ink-3">
+                {view === "work" ? workContext.description : "원본 파일, 생성 이력, 권리 조건을 확인합니다."}
+              </p>
+            </div>
+          </div>
+          <div className="toolbar-group ml-auto shrink-0 text-xs" role="group" aria-label="작업대 보기">
+            <button
+              onClick={() => setView("work")}
+              aria-pressed={view === "work"}
+              className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 font-semibold transition ${view === "work" ? "bg-clay text-ink-inverse" : "text-ink-2 hover:bg-surface-muted"}`}
+              data-testid="workbench-view-work"
+            >
+              <Icon name="box" className="h-3.5 w-3.5" /> 관찰
+            </button>
+            <button
+              onClick={() => setView("sources")}
+              aria-pressed={view === "sources"}
+              className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 font-semibold transition ${view === "sources" ? "bg-clay text-ink-inverse" : "text-ink-2 hover:bg-surface-muted"}`}
+              data-testid="workbench-view-sources"
+            >
+              <Icon name="document" className="h-3.5 w-3.5" /> 출처·자산
+            </button>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[10px] text-ink-3">
+          <span className="badge badge-neutral" title={detail.tab.assetMode}>
+            {ASSET_MODE_LABEL[detail.tab.assetMode]}
+          </span>
+          <span>선택·카메라·표시 설정은 자동 저장됩니다.</span>
+        </div>
+      </header>
       <div className="min-h-0 flex-1 overflow-y-auto">{center}</div>
     </div>
   );

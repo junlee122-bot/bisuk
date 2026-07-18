@@ -1,4 +1,4 @@
-import { expect, resetDb, SET_URL, test } from "./fixtures";
+import { API_URL, expect, resetDb, SET_URL, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 /**
@@ -13,7 +13,7 @@ const HERO_CAM = { position: [1.7, -0.12, 4.55], target: [0, 0.05, 0] };
 
 async function setUi(page: Page, ui: Record<string, unknown>): Promise<void> {
   await page.request.post(
-    "http://localhost:4100/api/stele-tabs/chungju-goguryeobi/ui-state",
+    `${API_URL}/api/stele-tabs/chungju-goguryeobi/ui-state`,
     {
       data: {
         camera: HERO_CAM,

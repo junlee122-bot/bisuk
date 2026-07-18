@@ -4,18 +4,21 @@
   "version": "0.1.0",
   "description": "석문(石文) Comparative Autonomous Studio — 멀티 비석 비교 비문 연구 플랫폼",
   "scripts": {
-    "typecheck": "pnpm -r --filter './packages/*' --filter './apps/*' --filter './e2e' run typecheck",
-    "test": "pnpm --filter @seokmun/engine test && pnpm --filter @seokmun/api test",
-    "build": "pnpm --filter @seokmun/types build && pnpm --filter @seokmun/engine build && pnpm --filter @seokmun/web build",
-    "dev:api": "pnpm --filter @seokmun/api dev",
-    "dev:web": "pnpm --filter @seokmun/web dev",
-    "e2e": "pnpm --filter @seokmun/e2e e2e"
+    "typecheck": "corepack pnpm -r run typecheck",
+    "test": "corepack pnpm --filter @seokmun/engine test && corepack pnpm --filter @seokmun/api test",
+    "build": "corepack pnpm --filter @seokmun/types build && corepack pnpm --filter @seokmun/engine build && corepack pnpm --filter @seokmun/web build",
+    "dev:api": "corepack pnpm --filter @seokmun/api dev",
+    "dev:web": "corepack pnpm --filter @seokmun/web dev",
+    "e2e": "corepack pnpm --filter @seokmun/e2e e2e"
   },
   "engines": {
     "node": ">=20"
   },
   "packageManager": "pnpm@10.33.0",
   "pnpm": {
+    "overrides": {
+      "postcss": ">=8.5.10"
+    },
     "onlyBuiltDependencies": [
       "better-sqlite3",
       "esbuild",

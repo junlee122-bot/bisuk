@@ -3,11 +3,10 @@
 const { chromium } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
+const { WEB, API } = require("./runtime-env.cjs");
 
 const OUT = process.argv[2] || "/home/user/bisuk/docs/portfolio-polish/screenshots/before";
 const SET = "early-korean-stelae-comparative";
-const WEB = "http://localhost:3100";
-const API = "http://localhost:4100";
 
 const CAM_DEFAULT = { position: [0.85, 0.1, 4.0], target: [0, 0, 0] };
 const CAM_MACRO = { position: [0.05, 0.28, 0.75], target: [0.05, 0.28, 0] };
@@ -77,7 +76,7 @@ async function shot(browser, name, { viewport, url, ui, waitFor, isMobile }) {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch();
   const warm = await browser.newPage();
-  await warm.request.post(`${API}/api/dev/reset`);
+  await warm.request.post(`${API}/api/dev/reset`, { timeout: 15_000 });
   // 라우트 웜업 (서버 콜드 스타트 시간이 캡처에 섞이지 않도록)
   for (const u of [`${WEB}/sets/${SET}?tab=chungju-goguryeobi`, `${WEB}/sets/${SET}/compare`]) {
     await warm.goto(u).catch(() => {});

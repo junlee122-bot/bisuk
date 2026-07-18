@@ -5,7 +5,11 @@ import path from "node:path";
 export type Db = Database.Database;
 
 export function dataDir(): string {
-  return process.env.SEOKMUN_DATA_DIR ?? path.resolve(import.meta.dirname, "../.data");
+  if (process.env.SEOKMUN_DATA_DIR) return process.env.SEOKMUN_DATA_DIR;
+  if (process.env.VERCEL) {
+    return path.join(process.env.TMPDIR ?? process.env.TEMP ?? "/tmp", "seokmun-data");
+  }
+  return path.resolve(import.meta.dirname, "../.data");
 }
 
 export function openDb(): Db {
