@@ -15,7 +15,8 @@ import {
   type Reading,
   type ReadingStatus,
 } from "@seokmun/types";
-import { buildReadingComparison, exportReadingComparisonCsv } from "@seokmun/engine";
+import { buildReadingComparison,
+  faceLabelFor, exportReadingComparisonCsv } from "@seokmun/engine";
 import { newId } from "./context";
 import type { Db } from "./db";
 import { tx } from "./db";
@@ -346,7 +347,8 @@ export function registerReadingRoutes(app: FastifyInstance, db: Db): void {
     if (!tab) return notFound(reply, "탭");
     const q = z.object({ format: z.enum(["json", "csv"]).default("json") }).parse(req.query);
     const cells = glyphCells.listByTab(db, id).map((c) => c.entity);
-    const table = buildReadingComparison(cells, readings.listByTab(db, id));
+    const faceLabels = Object.fromEntries(cells.map((c) => [c.faceId, faceLabelFor(c.faceId)]));
+    const table = buildReadingComparison(cells, readings.listByTab(db, id), { faceLabels });
     if (q.format === "csv") {
       return reply
         .header("content-type", "text/csv; charset=utf-8")

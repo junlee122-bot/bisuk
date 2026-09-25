@@ -210,6 +210,29 @@ export interface DocumentListItem {
   benchmarkLeak: boolean;
 }
 
+/** 공개 쇼케이스 — 서버 측 권리 필터 */
+export const showcaseApi = {
+  get: (setId: string) =>
+    request<{
+      set: { id: string; name: string; description: string; visibility: string };
+      viewerRole: string | null;
+      tabs: Array<{
+        tab: Pick<SteleTab, "id" | "title" | "canonicalName" | "roles" | "periodEstimate" | "location" | "material" | "knownFacts" | "rightsState">;
+        assets: SteleAsset[];
+        sourceRecords: Array<Pick<SourceRecord, "id" | "type" | "publisher" | "url" | "rightsState">>;
+        glyphCells: GlyphCell[];
+      }>;
+      primaryTabId: string | null;
+      focusCellId: string | null;
+      unknownCellId: string | null;
+      matrix: GlyphMatrixResponse["rows"];
+      statusCounts: Record<string, number>;
+      metrics: { tabCount: number; cellCount: number; sourceCount: number; unresolved: number; unresolvedRatio: number };
+      gatedAssets: Array<{ tabTitle: string; filename: string; rightsState: string }>;
+      note: string;
+    }>(`/api/showcase/${encodeURIComponent(setId)}`),
+};
+
 /** 인증·계정 */
 export const authApi = {
   status: () => request<AuthStatus>("/api/auth/status"),

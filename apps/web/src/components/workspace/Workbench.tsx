@@ -9,6 +9,8 @@ import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { Viewer3D } from "@/features/high-fidelity-3d/HybridSteleViewport";
 import { FragmentViewer } from "@/components/three/FragmentViewer";
 import { SourceCardPanel } from "./SourceCardPanel";
+import { ImageAnnotator } from "./ImageAnnotator";
+import { RealMeshViewer } from "./RealMeshViewer";
 
 function TranscriptionViewer({
   detail,
@@ -130,7 +132,21 @@ export function Workbench({
   onSelect: (id: string) => void;
   onUiStateChange: (patch: Partial<TabUiState>) => void;
 }) {
-  const [view, setView] = useState<"work" | "sources">("work");
+  const [view, setView] = useState<"work" | "image" | "mesh" | "sources">("work");
+  // 실제 등록 자료 — 사진·탁본(2D)과 3D 원본
+  const imageAssets = detail.assets.filter(
+    (a) => a.provenance !== "VIRTUAL_DEMO" && (a.assetType === "IMAGE" || a.assetType === "RUBBING")
+  );
+  const realMeshAssets = detail.assets.filter(
+    (a) =>
+      a.provenance !== "VIRTUAL_DEMO" &&
+      (a.assetType === "MESH" || a.assetType === "POINT_CLOUD") &&
+      /^(PLY|STL|OBJ|GLB|GLTF)/i.test(a.format ?? "")
+  );
+  const [imageId, setImageId] = useState<string | null>(null);
+  const [meshId, setMeshId] = useState<string | null>(null);
+  const image = imageAssets.find((a) => a.id === imageId) ?? imageAssets[0] ?? null;
+  const realMesh = realMeshAssets.find((a) => a.id === meshId) ?? realMeshAssets[0] ?? null;
   const meshAsset = detail.assets.find(
     (a) => a.assetType === "MESH" && a.format === "PROCEDURAL_MESH"
   );
@@ -141,6 +157,19 @@ export function Workbench({
   let center: React.ReactNode;
   if (view === "sources") {
     center = <SourceCardPanel detail={detail} />;
+  } else if (view === "image" && image) {
+    center = (
+      <ImageAnnotator
+        key={image.id}
+        asset={image}
+        cells={detail.glyphCells}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        tabId={detail.tab.id}
+      />
+    );
+  } else if (view === "mesh" && realMesh) {
+    center = <RealMeshViewer key={realMesh.id} asset={realMesh} tabId={detail.tab.id} />;
   } else if (fragmentAssets.length >= 2) {
     center = (
       <FragmentViewer
@@ -180,6 +209,52 @@ export function Workbench({
         >
           작업대
         </button>
+        {imageAssets.length > 0 && (
+          <button
+            onClick={() => setView("image")}
+            className={`badge ${view === "image" ? "badge-demo" : "badge-neutral"}`}
+            data-testid="workbench-view-image"
+          >
+            사진·탁본 ({imageAssets.length})
+          </button>
+        )}
+        {view === "image" && imageAssets.length > 1 && (
+          <select
+            value={image?.id}
+            onChange={(e) => setImageId(e.target.value)}
+            className="rounded border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1"
+            aria-label="이미지 선택"
+          >
+            {imageAssets.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.originalFilename}
+              </option>
+            ))}
+          </select>
+        )}
+        {realMeshAssets.length > 0 && (
+          <button
+            onClick={() => setView("mesh")}
+            className={`badge ${view === "mesh" ? "badge-demo" : "badge-neutral"}`}
+            data-testid="workbench-view-mesh"
+          >
+            3D 실측 ({realMeshAssets.length})
+          </button>
+        )}
+        {view === "mesh" && realMeshAssets.length > 1 && (
+          <select
+            value={realMesh?.id}
+            onChange={(e) => setMeshId(e.target.value)}
+            className="rounded border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1"
+            aria-label="3D 자료 선택"
+          >
+            {realMeshAssets.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.originalFilename}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           onClick={() => setView("sources")}
           className={`badge ${view === "sources" ? "badge-demo" : "badge-neutral"}`}

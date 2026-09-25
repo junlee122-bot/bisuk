@@ -5,7 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TabUiState, type GlyphCell, type RightsState, type SteleAsset } from "@seokmun/types";
-import { api, type TabDetail } from "@/lib/api";
+import type { GlyphMatrixResponse, SourceRecord, SteleTab } from "@seokmun/types";
+import { showcaseApi } from "@/lib/api";
+
+/** 쇼케이스 탭 — 서버가 권리 필터를 적용한 공개용 부분집합 */
+type ShowcaseDetail = {
+  tab: Pick<SteleTab, "id" | "title" | "canonicalName" | "roles" | "periodEstimate" | "location" | "material" | "knownFacts" | "rightsState">;
+  assets: SteleAsset[];
+  sourceRecords: Array<Pick<SourceRecord, "id" | "type" | "publisher" | "url" | "rightsState">>;
+  glyphCells: GlyphCell[];
+};
+type TabDetail = ShowcaseDetail;
 import { useStageMode } from "@/lib/store";
 import { Viewer3D } from "@/features/high-fidelity-3d/HybridSteleViewport";
 import type { BookmarkName } from "@/features/high-fidelity-3d/cameraBookmarks";
@@ -87,18 +97,26 @@ export function Showcase({ setId }: { setId: string }) {
   const searchParams = useSearchParams();
   const setMode = useStageMode((s) => s.setMode);
 
-  // 쇼케이스는 전시 동선 — 진입 시 전시 보기
-  useEffect(() => setMode("EXHIBITION"), [setMode]);
+  // 쇼케이스는 전시 동선 — 진입 시 전시 보기, 떠날 때 연구 보기로 되돌린다
+  useEffect(() => {
+    setMode("EXHIBITION");
+    return () => setMode("RESEARCH");
+  }, [setMode]);
 
-  const { data } = useQuery({
+  // 서버가 권리 필터를 적용한 공개 API — PUBLIC 세트는 로그인 없이 열람
+  const { data, error } = useQuery({
     queryKey: ["showcase", setId],
     queryFn: async () => {
-      const overview = await api.getSet(setId);
-      const details = await Promise.all(
-        overview.tabs.map((t) => api.getTab(t.tab.id).catch(() => null))
-      );
-      return { overview, details: details.filter(Boolean) as TabDetail[] };
+      const sc = await showcaseApi.get(setId);
+      return {
+        overview: { set: sc.set, stats: { tabCount: sc.metrics.tabCount } },
+        details: sc.tabs as TabDetail[],
+        matrix: sc.matrix,
+        serverGated: sc.gatedAssets,
+        serverMetrics: sc.metrics,
+      };
     },
+    retry: 0,
   });
 
   const chapterIdx = Math.min(
@@ -160,32 +178,22 @@ export function Showcase({ setId }: { setId: string }) {
     (a) => a.assetType === "MESH" && a.format === "PROCEDURAL_MESH" && publicShowable(a)
   );
 
-  // 권리 게이트 — 공개 불가 자산 목록 (내용은 노출하지 않고 사유만)
+  // 권리 게이트 — 서버가 제외한 자산 목록 (내용은 노출하지 않고 사유만)
   const gatedAssets = useMemo(
     () =>
-      (data?.details ?? []).flatMap((d) =>
-        d.assets
-          .filter((a) => !publicShowable(a))
-          .map((a) => ({ tab: d.tab.title, name: a.originalFilename ?? a.id, state: a.rightsState }))
-      ),
+      (data?.serverGated ?? []).map((g) => ({ tab: g.tabTitle, name: g.filename, state: g.rightsState as RightsState })),
     [data]
   );
 
-  const metrics = useMemo(() => {
-    if (!data) return null;
-    const cells = data.details.flatMap((d) => d.glyphCells);
-    const unresolved = cells.filter((c) =>
-      ["UNKNOWN", "CONFLICTING"].includes(c.readingStatus)
-    ).length;
-    return {
-      tabCount: data.overview.stats.tabCount,
-      cellCount: cells.length,
-      sourceCount: data.details.reduce((n, d) => n + d.sourceRecords.length, 0),
-      unresolvedRatio: cells.length ? Math.round((unresolved / cells.length) * 100) : 0,
-      unresolved,
-    };
-  }, [data]);
+  const metrics = data?.serverMetrics ?? null;
 
+  if (error) {
+    return (
+      <p className="p-8 text-sm text-ink-2" data-testid="showcase-denied">
+        {(error as Error).message} — 공개(PUBLIC)로 설정된 연구 세트만 로그인 없이 볼 수 있습니다.
+      </p>
+    );
+  }
   if (!data || !metrics) {
     return <p className="p-8 text-sm text-ink-2">쇼케이스 불러오는 중…</p>;
   }
@@ -319,7 +327,7 @@ export function Showcase({ setId }: { setId: string }) {
             {chapter.key === "glyph" && primary && (
               <GlyphChapter cells={primary.glyphCells} focusId={FOCUS_CELL} />
             )}
-            {chapter.key === "compare" && <CompareChapter details={data.details} />}
+            {chapter.key === "compare" && <CompareChapter matrix={data.matrix} />}
             {chapter.key === "evidence" && <EvidenceChapter details={data.details} />}
           </div>
         </aside>
@@ -456,14 +464,9 @@ function GlyphChapter({ cells, focusId }: { cells: GlyphCell[]; focusId: string 
   );
 }
 
-function CompareChapter({ details }: { details: TabDetail[] }) {
-  const tabIds = details.slice(0, 3).map((d) => d.tab.id);
-  const { data } = useQuery({
-    queryKey: ["showcase-matrix", tabIds],
-    queryFn: () => api.compareGlyphs({ glyphCellIds: [FOCUS_CELL], tabIds }),
-    enabled: tabIds.length >= 2,
-  });
-  const row = data?.rows?.[0];
+function CompareChapter({ matrix }: { matrix: GlyphMatrixResponse["rows"] }) {
+  // 비교 행렬은 쇼케이스 API가 저장된 자료로 미리 계산해 준다 (로그인 불필요)
+  const row = matrix[0];
   return (
     <>
       <p>

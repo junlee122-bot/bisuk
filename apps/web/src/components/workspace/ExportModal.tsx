@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 const FORMATS = [
   { id: "json", label: "JSON 번들" },
   { id: "csv", label: "CSV 판독표" },
-  { id: "epidoc", label: "EpiDoc XML" },
+  { id: "epidoc", label: "EpiDoc XML (TEI)" },
   { id: "report", label: "연구 보고서 (MD)" },
 ] as const;
 
@@ -14,6 +15,8 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
   const [audience, setAudience] = useState<"INTERNAL" | "PUBLIC">("INTERNAL");
   const [blocked, setBlocked] = useState<Array<{ filename: string | null; rightsState: string }> | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [epidocTab, setEpidocTab] = useState("");
+  const { data: overview } = useQuery({ queryKey: ["set", setId], queryFn: () => api.getSet(setId) });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -26,8 +29,8 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
   const download = async (format: string) => {
     setBlocked(null);
     setMessage(null);
-    const url = api.exportUrl(setId, format, audience);
-    const res = await fetch(url);
+    const url = api.exportUrl(setId, format, audience, format === "epidoc" && epidocTab ? epidocTab : undefined);
+    const res = await fetch(url, { credentials: "same-origin" });
     if (res.status === 403) {
       const body = (await res.json()) as {
         message: string;
@@ -100,6 +103,25 @@ export function ExportModal({ setId, onClose }: { setId: string; onClose: () => 
             </button>
           ))}
         </div>
+        <label className="mt-2 flex items-center gap-1 text-xs text-ink-2">
+          EpiDoc 범위
+          <select
+            value={epidocTab}
+            onChange={(e) => setEpidocTab(e.target.value)}
+            className="rounded border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1 py-0.5"
+            data-testid="epidoc-tab"
+          >
+            <option value="">세트 전체 (teiCorpus)</option>
+            {overview?.tabs.map(({ tab }) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.title} (비석 1건 TEI)
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="mt-1 text-[11px] text-ink-3">
+          EpiDoc은 연구실 채택 판독을 우선하고, 자동 확정은 기계 판독(resp·cert medium)으로, 판독자별 이견은 apparatus로 기록합니다. CSV는 Excel용 UTF-8 BOM을 포함합니다.
+        </p>
         {message && (
           <p className="mt-3 text-xs text-ink-2" data-testid="export-message">
             {message}

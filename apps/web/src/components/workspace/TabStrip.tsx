@@ -23,14 +23,21 @@ export function TabStrip({
 }) {
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [tabFilter, setTabFilter] = useState("");
   const order = overview.set.activeTabOrder.filter((id) =>
     overview.tabs.some((t) => t.tab.id === id)
   );
   const pinned = new Set(overview.set.pinnedTabIds);
+  const matches = (id: string) => {
+    if (!tabFilter.trim()) return true;
+    const t = overview.tabs.find((x) => x.tab.id === id)?.tab;
+    const hay = `${t?.title ?? ""} ${t?.canonicalName ?? ""} ${(t?.alternativeNames ?? []).join(" ")}`.toLowerCase();
+    return hay.includes(tabFilter.trim().toLowerCase()) || id === activeTabId;
+  };
   const sorted = [
     ...order.filter((id) => pinned.has(id)),
     ...order.filter((id) => !pinned.has(id)),
-  ];
+  ].filter(matches);
 
   const move = (id: string, dir: -1 | 1) => {
     const idx = order.indexOf(id);
@@ -48,6 +55,16 @@ export function TabStrip({
       role="tablist"
       aria-label="비석 탭"
     >
+      {order.length > 8 && (
+        <input
+          value={tabFilter}
+          onChange={(e) => setTabFilter(e.target.value)}
+          placeholder={`탭 ${order.length}개 중 찾기`}
+          className="w-32 shrink-0 rounded border border-[var(--panel-border)] bg-transparent px-2 py-0.5 text-xs"
+          aria-label="탭 찾기"
+          data-testid="tab-filter"
+        />
+      )}
       {sorted.map((id) => {
         const entry = overview.tabs.find((t) => t.tab.id === id);
         if (!entry) return null;
