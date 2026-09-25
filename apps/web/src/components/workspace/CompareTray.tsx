@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SetOverview } from "@/lib/api";
-import { useCompareTray } from "@/lib/store";
+import { COMPARE_TRAY_MAX, useCompareTray } from "@/lib/store";
 
 export function CompareTray({ overview }: { overview: SetOverview }) {
   const tray = useCompareTray();
   const [selectedTabs, setSelectedTabs] = useState<string[]>([]);
+  useEffect(() => {
+    void useCompareTray.persist.rehydrate();
+  }, []);
   if (tray.cellIds.length === 0) return null;
 
   const toggleTab = (id: string) =>
@@ -23,7 +26,10 @@ export function CompareTray({ overview }: { overview: SetOverview }) {
       data-testid="compare-tray"
       aria-label="비교 트레이"
     >
-      <span className="font-semibold text-ink-2">비교 트레이</span>
+      <span className="font-semibold text-ink-2">
+        비교 트레이 {tray.cellIds.length}/{COMPARE_TRAY_MAX}
+      </span>
+      {tray.overflowed && <span className="badge badge-warn">한도 초과 — 오래된 셀이 빠졌습니다</span>}
       {tray.cellIds.map((id) => (
         <span key={id} className="badge badge-neutral">
           {id}

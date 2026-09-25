@@ -177,7 +177,7 @@ describe("CSV·보고서 v2", () => {
   it("보고서에 판독문·판독자별 비교·참고문헌이 들어간다", () => {
     const md = exportReport(richInput());
     expect(md).toContain("## 판독문");
-    expect(md).toMatch(/ 1 {2}王\[安\]▨▨/);
+    expect(md).toContain(" 1  王[安][?][?]");
     expect(md).toContain("## 판독자별 비교");
     expect(md).toContain("## 참고문헌");
     expect(md).toContain("허흥식, 「충주 고구려비 판독 재검토」, 『사학연구』 38, 한국사학회, 1984, 12-40쪽.");

@@ -13,6 +13,7 @@ import { Workbench } from "./Workbench";
 import { EvidencePanel } from "./EvidencePanel";
 import { CompareTray } from "./CompareTray";
 import { ExportModal } from "./ExportModal";
+import { TabManager } from "./TabManager";
 
 export function Workspace({ setId }: { setId: string }) {
   const qc = useQueryClient();
@@ -20,6 +21,8 @@ export function Workspace({ setId }: { setId: string }) {
   const searchParams = useSearchParams();
   const mobile = useMobilePanel();
   const [exportOpen, setExportOpen] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [closingTab, setClosingTab] = useState<string | null>(null);
 
   const { data: overview } = useQuery({
     queryKey: ["set", setId],
@@ -44,11 +47,13 @@ export function Workspace({ setId }: { setId: string }) {
   });
 
   const [selectedGlyph, setSelectedGlyph] = useState<string | null>(null);
+  const urlCell = searchParams.get("cell");
   useEffect(() => {
     if (detail) {
-      setSelectedGlyph(detail.tab.uiState.activeGlyphCellId);
+      const fromUrl = urlCell && detail.glyphCells.some((c) => c.id === urlCell) ? urlCell : null;
+      setSelectedGlyph(fromUrl ?? detail.tab.uiState.activeGlyphCellId);
     }
-  }, [detail?.tab.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [detail?.tab.id, urlCell]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const orderMutation = useMutation({
     // 부분 PATCH — 각 조작이 자기 필드만 저장해 stale 상태로 다른 필드를 되돌리지 않는다
@@ -120,6 +125,16 @@ export function Workspace({ setId }: { setId: string }) {
           <Link href={`/sets/${setId}/audit`} className="badge badge-neutral">
             감사 로그
           </Link>
+          {activeTabId && (
+            <Link href={`/sets/${setId}/readings?tab=${activeTabId}`} className="badge badge-neutral" data-testid="open-reading-table">
+              판독 비교표
+            </Link>
+          )}
+          {detail && (
+            <button onClick={() => setManagerOpen(true)} className="badge badge-neutral" data-testid="open-tab-manager">
+              비석 관리
+            </button>
+          )}
           <button
             onClick={() => setExportOpen(true)}
             className="badge badge-demo"
@@ -141,13 +156,7 @@ export function Workspace({ setId }: { setId: string }) {
             : [...overview.set.pinnedTabIds, id];
           orderMutation.mutate({ pinnedTabIds: pinned });
         }}
-        onClose={(id) => {
-          // 서버 archive가 세트 순서·고정·활성탭 정리를 함께 수행한다
-          void api.archiveTab(id).then(() => {
-            if (activeTabId === id) router.replace(`/sets/${setId}`, { scroll: false });
-            void qc.invalidateQueries({ queryKey: ["set", setId] });
-          });
-        }}
+        onClose={(id) => setClosingTab(id)}
         onAddTab={(title) => {
           void api
             .createTab(setId, {
@@ -158,6 +167,32 @@ export function Workspace({ setId }: { setId: string }) {
             .then(() => void qc.invalidateQueries({ queryKey: ["set", setId] }));
         }}
       />
+
+      {closingTab && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-1.5 text-xs" role="alertdialog" data-testid="tab-close-confirm">
+          <span>
+            ‘{overview.tabs.find((t) => t.tab.id === closingTab)?.tab.title}’ 탭을 보관할까요? 자료는 지워지지 않으며 ‘비석 관리 → 보관된 탭’에서 복원할 수 있습니다.
+          </span>
+          <button
+            className="badge badge-warn"
+            data-testid="tab-close-confirm-yes"
+            onClick={() => {
+              const id = closingTab;
+              setClosingTab(null);
+              // 서버 archive가 세트 순서·고정·활성탭 정리를 함께 수행한다
+              void api.archiveTab(id).then(() => {
+                if (activeTabId === id) router.replace(`/sets/${setId}`, { scroll: false });
+                void qc.invalidateQueries({ queryKey: ["set", setId] });
+              });
+            }}
+          >
+            보관
+          </button>
+          <button className="badge badge-neutral" onClick={() => setClosingTab(null)}>
+            취소
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-1 border-b border-[var(--panel-border)] bg-surface px-2 py-1 lg:hidden">
         {(
@@ -208,12 +243,22 @@ export function Workspace({ setId }: { setId: string }) {
           className={`min-h-0 border-l border-[var(--panel-border)] ${mobile.panel === "evidence" ? "block" : "hidden"} lg:block`}
           aria-label="후보·근거·반증 패널"
         >
-          {detail && <EvidencePanel detail={detail} selectedId={selectedGlyph} />}
+          {detail && (
+            <EvidencePanel
+              detail={detail}
+              selectedId={selectedGlyph}
+              setId={setId}
+              onCellDeleted={() => setSelectedGlyph(null)}
+            />
+          )}
         </aside>
       </div>
 
       <CompareTray overview={overview} />
       {exportOpen && <ExportModal setId={setId} onClose={() => setExportOpen(false)} />}
+      {managerOpen && detail && (
+        <TabManager setId={setId} detail={detail} onClose={() => setManagerOpen(false)} onSelectCell={selectGlyph} />
+      )}
     </div>
   );
 }

@@ -217,7 +217,7 @@ export function leidenText(tok: EditionToken): string {
       return tok.supplied ? `[${t}]` : t;
     }
     case "gap":
-      return tok.reason === "lost" ? "□" : "▨";
+      return tok.reason === "lost" ? "□" : "[?]";
   }
 }
 
@@ -645,7 +645,7 @@ export function exportReport(input: ExportInput): string {
     `**주의**: VIRTUAL_DEMO로 표시된 자산과 [가상 문헌] 표기가 있는 근거는 데모용 창작물이며 실제 비석 데이터·실제 판독 결과가 아니다.`
   );
   lines.push("");
-  lines.push(`판독문 표기: 문자 = 판독, \`字?\` = 불확실, \`[字]\` = 복원(보충), \`字(異)\` = 이체자, □ = 결락, ▨ = 판독 불가.`);
+  lines.push(`판독문 표기: 문자 = 판독, \`字?\` = 불확실, \`[字]\` = 복원(보충), \`字(異)\` = 이체자, □ = 결락, [?] = 판독 불가.`);
   lines.push(`우선순위: 연구실 채택 판독 > 원문 관측 > 자동 확정(기계 제안, 검토 전).`);
   lines.push("");
   lines.push(`## 탭 요약`);

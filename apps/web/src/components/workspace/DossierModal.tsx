@@ -104,11 +104,32 @@ export function DossierModal({
                         <td className="py-1 pr-2 font-mono">{r.rule}</td>
                         <td className="pr-2">{r.expected}</td>
                         <td className="pr-2 tabular-nums">{r.actual}</td>
-                        <td>{r.passed ? "✓" : <span className="text-[var(--state-danger)]">✗</span>}</td>
+                        <td>
+                          {r.status === "NOT_EVALUATED" ? (
+                            <span className="text-ink-3" title="데이터가 없어 검사하지 못함 — 통과가 아님">미평가</span>
+                          ) : r.passed ? (
+                            "✓"
+                          ) : (
+                            <span className="text-[var(--state-danger)]">✗</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {data.decision.calibration && (
+                  <p className="mt-2 text-xs text-ink-2">
+                    신뢰도 보정:{" "}
+                    {data.decision.calibration.kind === "FITTED"
+                      ? `평가셋 적합 (프로파일 ${data.decision.calibration.profileId}, n=${data.decision.calibration.n})`
+                      : data.decision.calibration.kind === "DEMO_HEURISTIC"
+                        ? "데모 휴리스틱 — 실제 보정이 아니며 확률로 읽으면 안 됩니다"
+                        : "보정 없음 — 자동 확정하지 않습니다"}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-ink-3">
+                  기하·역사 지지도는 시각·문맥 점수에서 계산한 파생 지표로, 독립 근거가 아닙니다.
+                </p>
               </section>
             )}
 

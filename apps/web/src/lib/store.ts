@@ -1,22 +1,39 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-/** 비교 트레이 — 선택한 문자 셀 모음 (세션 로컬 상태) */
+/** 비교 트레이 최대 셀 수 — 서버 비교 API 한도(40)와 같다 */
+export const COMPARE_TRAY_MAX = 40;
+
+/** 비교 트레이 — 선택한 문자 셀 모음 (브라우저에 보존, 새로고침해도 유지) */
 interface CompareTrayState {
   cellIds: string[];
+  /** 한도 초과로 밀려난 셀이 있었는지 */
+  overflowed: boolean;
   add: (id: string) => void;
   remove: (id: string) => void;
   clear: () => void;
 }
 
-export const useCompareTray = create<CompareTrayState>((set) => ({
-  cellIds: [],
-  add: (id) =>
-    set((s) => (s.cellIds.includes(id) ? s : { cellIds: [...s.cellIds, id].slice(-8) })),
-  remove: (id) => set((s) => ({ cellIds: s.cellIds.filter((c) => c !== id) })),
-  clear: () => set({ cellIds: [] }),
-}));
+export const useCompareTray = create<CompareTrayState>()(
+  persist(
+    (set) => ({
+      cellIds: [],
+      overflowed: false,
+      add: (id) =>
+        set((s) => {
+          if (s.cellIds.includes(id)) return s;
+          const next = [...s.cellIds, id];
+          return { cellIds: next.slice(-COMPARE_TRAY_MAX), overflowed: next.length > COMPARE_TRAY_MAX };
+        }),
+      remove: (id) => set((s) => ({ cellIds: s.cellIds.filter((c) => c !== id), overflowed: false })),
+      clear: () => set({ cellIds: [], overflowed: false }),
+    }),
+    // SSR 수화 불일치를 피하려고 클라이언트 마운트 후 수동 복원한다 (CompareTray)
+    { name: "seokmun-compare-tray", skipHydration: true, partialize: (s) => ({ cellIds: s.cellIds }) }
+  )
+);
 
 /**
  * 상위 무대 모드 — EXHIBITION(전시 보기) / RESEARCH(연구 보기).

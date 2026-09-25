@@ -3,13 +3,61 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SteleAsset } from "@seokmun/types";
-import { api, type TabDetail } from "@/lib/api";
+import { api, labApi, type TabDetail } from "@/lib/api";
 import { DemoBadge, RightsBadge } from "@/components/badges";
+import { useCan } from "@/lib/session";
+
+/** 자산 단위·축척 확정 — 측정값(mm) 표시의 전제 */
+function ScaleForm({ asset, onDone }: { asset: SteleAsset; onDone: () => void }) {
+  const isImage = asset.assetType === "IMAGE" || asset.assetType === "RUBBING";
+  const [unit, setUnit] = useState<"mm" | "cm" | "m" | "px">(isImage ? "px" : "mm");
+  const [mpp, setMpp] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const m = useMutation({
+    mutationFn: () =>
+      labApi.setScale(asset.id, {
+        unit,
+        ...(unit === "px" && mpp ? { metersPerUnit: Number(mpp) / 1000 } : {}),
+        note: "사용자 확정",
+      }),
+    onSuccess: () => {
+      setErr(null);
+      onDone();
+    },
+    onError: (e) => setErr((e as Error).message),
+  });
+  const cal = asset.scaleCalibration;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]" data-testid={`scale-form-${asset.id}`}>
+      {cal ? (
+        <span className="badge badge-ok" title={`${cal.method} · ${cal.confirmedBy} · ${cal.confirmedAt}`}>
+          단위 확정: 1 {cal.unit} = {(cal.metersPerUnit * 1000).toPrecision(4)} mm ({cal.method === "SCALE_BAR" ? "축척 막대" : cal.method === "USER_CONFIRMED" ? "사용자 확정" : "파일 정보"})
+        </span>
+      ) : (
+        <span className="badge badge-warn">단위 미확정 — 측정값을 mm로 표시하지 않습니다</span>
+      )}
+      <select value={unit} onChange={(e) => setUnit(e.target.value as typeof unit)} className="rounded border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1 py-0.5" aria-label="좌표 단위">
+        <option value="mm">mm</option>
+        <option value="cm">cm</option>
+        <option value="m">m</option>
+        <option value="px">픽셀</option>
+      </select>
+      {unit === "px" && (
+        <input value={mpp} onChange={(e) => setMpp(e.target.value)} placeholder="1픽셀 = ? mm" className="w-24 rounded border border-[var(--panel-border)] bg-transparent px-1 py-0.5" aria-label="픽셀당 mm" />
+      )}
+      <button className="badge badge-neutral" onClick={() => m.mutate()} disabled={m.isPending}>
+        단위 확정
+      </button>
+      {isImage && <span className="text-ink-3">또는 작업대 이미지 뷰어에서 축척 막대 두 점을 찍으세요</span>}
+      {err && <span className="text-[var(--state-danger)]">{err}</span>}
+    </div>
+  );
+}
 
 function LicenseForm({ asset, onDone }: { asset: SteleAsset; onDone: () => void }) {
   const [licenseType, setLicenseType] = useState("KOGL_TYPE_1");
   const [rightsState, setRightsState] = useState("ATTRIBUTION_REQUIRED");
-  const [verifiedBy, setVerifiedBy] = useState("demo-admin");
+  const [verifiedBy, setVerifiedBy] = useState("");
   const mutation = useMutation({
     mutationFn: () =>
       api.setLicense(asset.id, { licenseType, rightsState, verifiedBy }),
@@ -51,8 +99,9 @@ function LicenseForm({ asset, onDone }: { asset: SteleAsset; onDone: () => void 
       <input
         value={verifiedBy}
         onChange={(e) => setVerifiedBy(e.target.value)}
-        className="w-28 rounded border border-[var(--panel-border)] bg-transparent px-2 py-1"
-        aria-label="확인자"
+        className="w-36 rounded border border-[var(--panel-border)] bg-transparent px-2 py-1"
+        aria-label="확인 근거 메모"
+        placeholder="확인 근거 (선택)"
       />
       <button type="submit" className="badge badge-ok" disabled={mutation.isPending}>
         권리 확인 저장
@@ -66,16 +115,20 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
   const [file, setFile] = useState<File | null>(null);
   const [purpose, setPurpose] = useState("판독 연구 (개인 검토용)");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [declaredType, setDeclaredType] = useState("");
+  const canUpload = useCan("RESEARCHER");
+  const isPI = useCan("PI");
   const { data: maturity } = useQuery({
     queryKey: ["maturity", detail.tab.id],
     queryFn: () => api.getMaturity(detail.tab.id),
   });
   const officialSources = detail.sourceRecords;
-  const canImport = officialSources.some((s) => s.type === "OFFICIAL_3D_INDEX");
+  // 모든 탭에서 연구원 이상이 자료를 등록할 수 있다 (출처 레코드는 선택)
+  const canImport = canUpload;
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error("파일을 선택하세요");
-      return api.uploadAsset(detail.tab.id, file, purpose, officialSources[0]?.id ?? null);
+      return api.uploadAsset(detail.tab.id, file, purpose, officialSources[0]?.id ?? null, declaredType || undefined);
     },
     onSuccess: () => {
       setFile(null);
@@ -147,7 +200,7 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
 
       {canImport && (
         <section className="panel p-3" data-testid="importer">
-          <h3 className="text-sm font-semibold">3D 파일 수동 등록 (PLY·STL·ASC)</h3>
+          <h3 className="text-sm font-semibold">자료 등록 — 3D(PLY·STL·OBJ·GLB·ASC·E57·LAS)·사진·탁본(JPG·PNG·TIFF·WebP)·RTI·PDF</h3>
           <p className="mt-0.5 text-xs text-ink-3">
             등록 즉시 체크섬·품질 보고서가 생성되며, 공공누리 유형 확인 전에는{" "}
             <span className="text-[var(--state-danger)]">권리 확인 필요</span> 상태로 외부 공개
@@ -156,11 +209,20 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <input
               type="file"
-              accept=".ply,.stl,.asc,.xyz,.obj"
+              accept=".ply,.stl,.asc,.xyz,.obj,.glb,.e57,.las,.jpg,.jpeg,.png,.webp,.tif,.tiff,.ptm,.rti,.pdf"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               data-testid="upload-input"
-              aria-label="3D 파일 선택"
+              aria-label="자료 파일 선택"
             />
+            <select
+              value={declaredType}
+              onChange={(e) => setDeclaredType(e.target.value)}
+              className="rounded border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1 py-1"
+              aria-label="자료 종류"
+            >
+              <option value="">종류 자동 판별</option>
+              <option value="RUBBING">탁본 이미지</option>
+            </select>
             <input
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
@@ -225,8 +287,17 @@ export function SourceCardPanel({ detail }: { detail: TabDetail }) {
                   ))}
                 </div>
               )}
-              {a.provenance === "REAL_USER_UPLOAD" && a.rightsState === "VERIFY_REQUIRED" && (
+              {a.imageInfo && (
+                <p className="mt-1 text-ink-2">
+                  이미지 {a.imageInfo.width}×{a.imageInfo.height}px
+                </p>
+              )}
+              {a.provenance === "REAL_USER_UPLOAD" && canUpload && <ScaleForm asset={a} onDone={refresh} />}
+              {a.provenance === "REAL_USER_UPLOAD" && a.rightsState === "VERIFY_REQUIRED" && isPI && (
                 <LicenseForm asset={a} onDone={refresh} />
+              )}
+              {a.provenance === "REAL_USER_UPLOAD" && a.rightsState === "VERIFY_REQUIRED" && !isPI && (
+                <p className="mt-1 text-[11px] text-ink-3">권리 확정은 PI가 합니다.</p>
               )}
             </li>
           ))}

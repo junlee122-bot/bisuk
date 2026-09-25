@@ -7,7 +7,27 @@ import { api, type TabDetail } from "@/lib/api";
 import { ReadingBadge } from "@/components/badges";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
 import { useCompareTray } from "@/lib/store";
+import { useCan } from "@/lib/session";
 import { DossierModal } from "./DossierModal";
+import { ReadingsPanel } from "./ReadingsPanel";
+import { CellEditor } from "./CellEditor";
+import { RunHistory } from "./RunHistory";
+
+const CALIBRATION_LABEL: Record<string, string> = {
+  FITTED: "평가셋 적합 보정",
+  DEMO_HEURISTIC: "데모 휴리스틱 (보정 아님)",
+  UNCALIBRATED: "보정 없음 — 자동 확정 불가",
+};
+const MATCH_LABEL: Record<string, string> = {
+  EXACT: "정확 일치",
+  NORMALIZED: "정규화 일치",
+  VARIANT_FOLDED: "이체자 접기 일치",
+};
+const SPECIFICITY_LABEL: Record<string, string> = {
+  POSITIONAL: "위치 명시",
+  CHARACTER: "글자만 언급",
+  NONE: "대상 불명확",
+};
 
 function DocumentUpload({ tabId }: { tabId: string }) {
   const qc = useQueryClient();
@@ -161,11 +181,16 @@ function LiteratureSearch({
 export function EvidencePanel({
   detail,
   selectedId,
+  setId,
+  onCellDeleted,
 }: {
   detail: TabDetail;
   selectedId: string | null;
+  setId: string;
+  onCellDeleted?: () => void;
 }) {
   const qc = useQueryClient();
+  const canAnalyze = useCan("RESEARCHER");
   const tray = useCompareTray();
   const [dossierOpen, setDossierOpen] = useState(false);
   const [result, setResult] = useState<AnalyzeGlyphResponse | null>(null);
@@ -211,7 +236,8 @@ export function EvidencePanel({
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => analyzeMutation.mutate(cell.id)}
-              disabled={analyzeMutation.isPending}
+              disabled={analyzeMutation.isPending || !canAnalyze}
+              title={canAnalyze ? undefined : "열람자는 분석을 실행할 수 없습니다"}
               className="badge badge-demo disabled:opacity-40"
               data-testid="analyze-button"
             >
@@ -231,7 +257,16 @@ export function EvidencePanel({
             >
               + 비교 트레이
             </button>
+            <CellEditor key={`${cell.id}-${cell.version}`} cell={cell} tabId={detail.tab.id} onDeleted={() => onCellDeleted?.()} />
+            <RunHistory key={`runs-${cell.id}`} cellId={cell.id} />
           </div>
+          {analyzeMutation.error && (
+            <p className="text-[11px] text-[var(--state-danger)]" role="alert">
+              {(analyzeMutation.error as Error).message}
+            </p>
+          )}
+
+          <ReadingsPanel cellId={cell.id} setId={setId} tabId={detail.tab.id} />
 
           {shownResult && (
             <>
@@ -256,8 +291,24 @@ export function EvidencePanel({
                     게이트 실패: {shownResult.decision.failedRules.join(", ")}
                   </p>
                 )}
+                {shownResult.decision?.calibration && (
+                  <p className="mt-1 text-[11px] text-ink-2" data-testid="calibration-kind">
+                    신뢰도 보정: {CALIBRATION_LABEL[shownResult.decision.calibration.kind]}
+                  </p>
+                )}
+                {(() => {
+                  const ne = shownResult.decision?.ruleTrace.filter((r) => r.status === "NOT_EVALUATED") ?? [];
+                  return ne.length > 0 ? (
+                    <p className="mt-1 text-[11px] text-ink-3" data-testid="not-evaluated-rules">
+                      미평가 규칙(데이터 없음): {ne.map((r) => r.rule).join(", ")}
+                    </p>
+                  ) : null;
+                })()}
                 <p className="mt-1 text-[11px] text-ink-3">
                   독립 계보 {shownResult.independentLineageCount}개 · 실행 {shownResult.runId}
+                </p>
+                <p className="mt-1 text-[11px] text-ink-3">
+                  자동 결과는 판독 제안의 참고일 뿐입니다. 연구실 판독 확정은 PI 채택으로만 이뤄집니다.
                 </p>
               </section>
 
@@ -312,6 +363,14 @@ export function EvidencePanel({
                           {e.citationVerified ? "인용 검증" : "미검증"}
                         </span>
                         <span className="badge badge-neutral">{e.independenceGroup}</span>
+                        {e.citationMatchType && MATCH_LABEL[e.citationMatchType] && (
+                          <span className="badge badge-neutral">{MATCH_LABEL[e.citationMatchType]}</span>
+                        )}
+                        {e.targetSpecificity && (
+                          <span className={`badge ${e.targetSpecificity === "POSITIONAL" ? "badge-ok" : "badge-neutral"}`}>
+                            {SPECIFICITY_LABEL[e.targetSpecificity]}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 text-ink-2">{e.note}</p>
                       <blockquote className="mt-0.5 border-l-2 border-[var(--accent)] pl-1.5 text-ink-2">
