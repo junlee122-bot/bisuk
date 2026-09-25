@@ -101,18 +101,21 @@ function makeExportInput() {
       bbox2d: [0, 0, 0.1, 0.1], observabilityScore: 0.9, damageGrade: 0,
       readingStatus: "OBSERVED", acceptedCandidateId: null, publishedReading: "王",
       featureVector: [], strokes: null, version: 1,
+      strokeProvenance: null, adoptedReadingId: null, bboxAssetId: null, note: "",
     },
     {
       id: "g2", steleTabId: "tab1", faceId: "f", lineIndex: 1, sequenceIndex: 2,
       bbox2d: [0, 0.2, 0.1, 0.1], observabilityScore: 0.7, damageGrade: 2,
       readingStatus: "MULTI_SOURCE_AUTOMATIC", acceptedCandidateId: null,
       publishedReading: null, featureVector: [], strokes: null, version: 1,
+      strokeProvenance: null, adoptedReadingId: null, bboxAssetId: null, note: "",
     },
     {
       id: "g3", steleTabId: "tab1", faceId: "f", lineIndex: 1, sequenceIndex: 3,
       bbox2d: [0, 0.4, 0.1, 0.1], observabilityScore: 0.2, damageGrade: 4,
       readingStatus: "UNKNOWN", acceptedCandidateId: null, publishedReading: null,
       featureVector: [], strokes: null, version: 1,
+      strokeProvenance: null, adoptedReadingId: null, bboxAssetId: null, note: "",
     },
   ];
   const hypotheses: RestorationHypothesis[] = [

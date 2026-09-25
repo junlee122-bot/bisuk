@@ -76,6 +76,10 @@ export function buildGlyphCellEntity(
     publishedReading: json.hidden ? null : json.char,
     featureVector: featureVector(observed).map((v) => Math.round(v * 10000) / 10000),
     strokes,
+    strokeProvenance: null,
+    adoptedReadingId: null,
+    bboxAssetId: null,
+    note: "",
     version: 1,
   };
 }

@@ -218,6 +218,10 @@ export const CorpusDocument = z.object({
   derivedFromDocumentId: z.string().nullable().default(null),
   relatedTabIds: z.array(z.string()).default([]),
   content: z.string(),
+  /** 구조화 서지 연결 (BibliographyEntry.id) */
+  bibliographyId: z.string().nullable().default(null),
+  /** 원본 파일(PDF 등) 저장 키 — 본문 텍스트는 사용자가 붙여 넣은 전사본 */
+  fileStorageKey: z.string().nullable().default(null),
   createdAt: z.string(),
 });
 export type CorpusDocument = z.infer<typeof CorpusDocument>;
@@ -250,6 +254,21 @@ export const GlyphCell = z.object({
   /** 특징 벡터 (교차 비석 유사도 계산용, 데모에서는 획 기반 파생) */
   featureVector: z.array(z.number()).default([]),
   strokes: GlyphStrokes.nullable().default(null),
+  /** 획 트레이싱 출처 (누가·어떤 이미지 위에서) — 트레이싱 자체가 해석임을 기록 */
+  strokeProvenance: z
+    .object({
+      tracedBy: z.string(),
+      tracedAt: z.string(),
+      sourceAssetId: z.string().nullable().default(null),
+      note: z.string().default(""),
+    })
+    .nullable()
+    .default(null),
+  /** 검토 승인된 연구실 판독(Reading) — 있으면 자동 분석이 상태를 덮어쓰지 않는다 */
+  adoptedReadingId: z.string().nullable().default(null),
+  /** bbox2d가 정의된 기준 자산 (이미지/정사영/메시). null이면 탭 기본 면 좌표 */
+  bboxAssetId: z.string().nullable().default(null),
+  note: z.string().default(""),
   version: z.number().int().default(1),
 });
 export type GlyphCell = z.infer<typeof GlyphCell>;
@@ -310,8 +329,18 @@ export const DecisionGateResult = z.object({
       expected: z.string(),
       actual: z.string(),
       passed: z.boolean(),
+      /** PASS/FAIL/NOT_EVALUATED — 데이터가 없어 검사하지 못한 규칙을 '통과'로 보이지 않게 한다 */
+      status: z.enum(["PASS", "FAIL", "NOT_EVALUATED"]).optional(),
     })
   ),
+  /** 보정 상태 — 실제 평가셋으로 적합했는지, 데모 휴리스틱인지 */
+  calibration: z
+    .object({
+      kind: z.enum(["FITTED", "DEMO_HEURISTIC", "UNCALIBRATED"]),
+      profileId: z.string().nullable().default(null),
+      n: z.number().int().nullable().default(null),
+    })
+    .optional(),
 });
 export type DecisionGateResult = z.infer<typeof DecisionGateResult>;
 

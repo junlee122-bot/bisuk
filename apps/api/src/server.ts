@@ -774,6 +774,8 @@ export function buildServer(): FastifyInstance {
         derivedFromDocumentId: null,
         relatedTabIds: body.relatedTabIds,
         content: body.content,
+        bibliographyId: null,
+        fileStorageKey: null,
         createdAt: now,
       },
       extra: { benchmarkLeak: false, claims: [] },

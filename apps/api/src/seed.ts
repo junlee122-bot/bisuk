@@ -311,6 +311,8 @@ export function seedAll(db: Db): void {
       derivedFromDocumentId: d.derivedFromDocumentId,
       relatedTabIds: d.relatedTabIds,
       content: d.content,
+      bibliographyId: null,
+      fileStorageKey: null,
       createdAt: now,
     };
     documents.put(db, {
