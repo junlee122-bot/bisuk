@@ -34,6 +34,9 @@ const ROUTE_ROLES: Record<string, MinRole> = {
   "GET /api/showcase/:setId": "PUBLIC",
   // 파일 — 권리·가시성은 핸들러에서 검사 (공개 쇼케이스용 가상 자산 허용)
   "GET /api/3d/variants/:variantId/file": "PUBLIC",
+  "GET /api/assets/:id/file": "PUBLIC",
+  // 세트 번들(전체 데이터) 내보내기는 연구원 이상
+  "GET /api/research-sets/:id/bundle": "RESEARCHER",
   // PI 전용: 권리 확정·판독 승인·계정·구성원·백업·보정·삭제
   "POST /api/assets/:id/license": "PI",
   "POST /api/readings/:id/review": "PI",

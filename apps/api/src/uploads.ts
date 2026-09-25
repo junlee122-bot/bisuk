@@ -64,11 +64,15 @@ export async function saveStream(
   const tmpPath = `${finalPath}.part-${process.pid}-${Date.now()}`;
   const hash = createHash("sha256");
   let bytes = 0;
+  let overflow = false;
+  // 한도 초과 시 요청 스트림을 파괴하지 않고 나머지를 읽어 버린다 —
+  // 스트림을 끊으면 413 응답조차 보낼 수 없기 때문 (길이를 모르는 청크 전송 대비)
   const meter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       bytes += chunk.length;
-      if (bytes > maxBytes) {
-        cb(new UploadTooLargeError(`업로드 한도(${Math.round(maxBytes / 1024 ** 2)}MB)를 넘었습니다`));
+      if (overflow || bytes > maxBytes) {
+        overflow = true;
+        cb();
         return;
       }
       hash.update(chunk);
@@ -80,6 +84,10 @@ export async function saveStream(
   } catch (err) {
     rmSync(tmpPath, { force: true });
     throw err;
+  }
+  if (overflow) {
+    rmSync(tmpPath, { force: true });
+    throw new UploadTooLargeError(`업로드 한도(${Math.round(maxBytes / 1024 ** 2)}MB)를 넘었습니다`);
   }
   if (bytes === 0) {
     rmSync(tmpPath, { force: true });

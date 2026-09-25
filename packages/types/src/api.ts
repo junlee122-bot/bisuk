@@ -148,7 +148,8 @@ export const SetLicenseBody = z.object({
     "UNKNOWN",
   ]),
   rightsState: RightsState,
-  verifiedBy: z.string().min(1),
+  /** 참고용 — 실제 확인자는 서버가 세션 사용자로 기록한다 */
+  verifiedBy: z.string().optional(),
   notes: z.string().default(""),
 });
 export type SetLicenseBody = z.infer<typeof SetLicenseBody>;

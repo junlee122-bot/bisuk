@@ -12,6 +12,7 @@ import {
 } from "@seokmun/types";
 import { dataDir, type Db } from "../db";
 import { newId } from "../context";
+import { assetFileAccess, sendFileStream } from "../files";
 import { auditEvents, steleAssets, steleTabs } from "../repo";
 import { listAdapters, validateAdapter } from "./adapters";
 import {
@@ -110,11 +111,20 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
     const { variantId } = req.params as { variantId: string };
     const variant = assetVariants.get(db, variantId);
     if (!variant?.storageKey) return notFound(reply, "variant 파일");
-    const buf = readFileSync(path.join(dataDir(), variant.storageKey));
-    return reply
-      .header("content-type", MIME_BY_FORMAT[variant.format] ?? "application/octet-stream")
-      .header("cache-control", "public, max-age=3600, immutable")
-      .send(buf);
+    const asset = steleAssets.get(db, variant.steleAssetId);
+    if (!asset) return notFound(reply, "자산");
+    // 파생 파일도 원본 권리를 상속 — 권리 미확인 자산은 세트 연구원만
+    const access = assetFileAccess(db, req.user, asset);
+    if (!access.ok) {
+      return reply.status(access.status).send({ error: access.error, message: access.message });
+    }
+    return sendFileStream(
+      req,
+      reply,
+      path.join(dataDir(), variant.storageKey),
+      MIME_BY_FORMAT[variant.format] ?? "application/octet-stream",
+      access.cache
+    );
   });
 
   // ── 글자 detail patch ──
