@@ -191,6 +191,35 @@ export const SteleAsset = z.object({
   storageKey: z.string().nullable().default(null),
   /** 가상 데모 메시의 절차 생성 파라미터 (VIRTUAL_DEMO 전용) */
   meshParams: z.record(z.unknown()).nullable().default(null),
+  /** 이미지·탁본 픽셀 크기 */
+  imageInfo: z
+    .object({ width: z.number().int().nonnegative(), height: z.number().int().nonnegative() })
+    .nullable()
+    .default(null),
+  /**
+   * 단위·축척 확정 — 파일 좌표 1단위가 몇 m인지.
+   * 확정 전에는 치수·측정값을 "가상/미확정 단위"로만 표시한다.
+   */
+  scaleCalibration: z
+    .object({
+      unit: z.enum(["mm", "cm", "m", "px"]),
+      metersPerUnit: z.number().positive(),
+      method: z.enum(["USER_CONFIRMED", "SCALE_BAR", "FILE_METADATA"]),
+      confirmedBy: z.string(),
+      confirmedAt: z.string(),
+      note: z.string().default(""),
+    })
+    .nullable()
+    .default(null),
+  /** 메시 정렬 — 정면이 +Z, 위가 +Y가 되도록 적용할 회전(도, XYZ 순서) */
+  alignment: z
+    .object({
+      rotationDeg: z.tuple([z.number(), z.number(), z.number()]),
+      setBy: z.string(),
+      setAt: z.string(),
+    })
+    .nullable()
+    .default(null),
   createdAt: z.string(),
 });
 export type SteleAsset = z.infer<typeof SteleAsset>;
@@ -410,11 +439,17 @@ export type FrontierWatchItem = z.infer<typeof FrontierWatchItem>;
 export const AuditEvent = z.object({
   id: z.string(),
   ts: z.string(),
+  /** 행위자 사용자 ID (시스템 작업은 "system") */
   actor: z.string(),
+  actorName: z.string().optional(),
   action: z.string(),
   entityType: z.string(),
   entityId: z.string(),
   payload: z.record(z.unknown()).default({}),
+  requestId: z.string().optional(),
+  /** 해시 체인 — 이전 이벤트 해시와 본 이벤트 내용의 sha256 (변조 검출) */
+  prevHash: z.string().nullable().optional(),
+  hash: z.string().optional(),
 });
 export type AuditEvent = z.infer<typeof AuditEvent>;
 

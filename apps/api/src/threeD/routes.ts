@@ -11,6 +11,7 @@ import {
   THREE_D_PIPELINE_VERSION,
 } from "@seokmun/types";
 import { dataDir, type Db } from "../db";
+import { newId } from "../context";
 import { auditEvents, steleAssets, steleTabs } from "../repo";
 import { listAdapters, validateAdapter } from "./adapters";
 import {
@@ -207,7 +208,7 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
       })
       .parse(req.body);
     const preset = {
-      id: `preset-${Date.now()}`,
+      id: newId("preset"),
       ...body,
       toneMapping: "ACESFilmic",
       createdAt: new Date().toISOString(),
@@ -233,7 +234,7 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
     if (png.length > 8 * 1024 * 1024) {
       return reply.status(400).send({ error: "TOO_LARGE", message: "기준 렌더는 8MB 이하" });
     }
-    const id = `var-ref-${Date.now()}`;
+    const id = newId("var-ref");
     const dir = path.join(dataDir(), "derived");
     mkdirSync(dir, { recursive: true });
     const storageKey = path.join("derived", `${id}.png`);
@@ -301,7 +302,7 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
     const now = new Date().toISOString();
     const look = SceneLook.parse({
       ...parsed.data,
-      id: `look-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      id: newId("look"),
       builtIn: false,
       version: 1,
       createdAt: now,
@@ -357,7 +358,7 @@ export function registerThreeDRoutes(app: FastifyInstance, db: Db): void {
     }
     const bm = CameraBookmark.parse({
       ...parsed.data,
-      id: `cambm-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      id: newId("cambm"),
       createdAt: new Date().toISOString(),
     });
     cameraBookmarks.put(db, bm);

@@ -32,6 +32,7 @@ import type { Db } from "./db";
 import { seedSceneLooks } from "./threeD/store";
 import {
   benchmarkCases,
+  documentClaims,
   documents,
   frontierItems,
   glyphCells,
@@ -268,6 +269,9 @@ export function seedAll(db: Db): void {
       qualityReport: null,
       storageKey: null,
       meshParams: a.meshParams ?? null,
+      imageInfo: null,
+      scaleCalibration: null,
+      alignment: null,
       createdAt: now,
     };
     steleAssets.put(db, asset);
@@ -317,7 +321,24 @@ export function seedAll(db: Db): void {
     };
     documents.put(db, {
       entity,
-      extra: { benchmarkLeak: Boolean(d.benchmarkLeak), claims: d.claims },
+      extra: { benchmarkLeak: Boolean(d.benchmarkLeak) },
+    });
+    // 시드 주석 claim — 사람이 주석한 것으로 간주(CONFIRMED)하되 출처를 SEED_ANNOTATION으로 남긴다
+    d.claims.forEach((c, i) => {
+      documentClaims.put(db, {
+        id: `claim-${d.id}-${i}`,
+        documentId: d.id,
+        targetGlyphCellId: c.targetGlyphCellId,
+        character: c.character,
+        stance: c.stance,
+        quote: c.quote,
+        locator: "",
+        status: "CONFIRMED",
+        origin: "SEED_ANNOTATION",
+        createdBy: "system",
+        reviewedBy: null,
+        createdAt: now,
+      });
     });
   }
 

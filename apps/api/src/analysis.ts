@@ -25,9 +25,11 @@ import {
   type SeedPriors,
 } from "@seokmun/engine";
 import type { Db } from "./db";
+import { newId } from "./context";
 import {
   auditEvents,
   crossMatches,
+  documentClaims,
   documents,
   evidenceRepo,
   glyphCells,
@@ -36,7 +38,6 @@ import {
   type StoredGlyphCell,
 } from "./repo";
 
-let runCounter = 0;
 
 function outcomeToReadingStatus(outcome: DecisionOutcome): ReadingStatus {
   switch (outcome) {
@@ -75,7 +76,21 @@ export function buildPipelineInput(
       t.id,
       storedCells.map((c) => toPipelineCell(c.entity, c.extra.styleJitter))
     );
-    for (const c of storedCells) seedKeyToCellId.set(c.extra.seedKey, c.entity.id);
+    for (const c of storedCells) {
+      if (c.extra.seedKey) seedKeyToCellId.set(c.extra.seedKey, c.entity.id);
+    }
+  }
+  // 사람이 검수한(CONFIRMED) claim만 분석 근거로 쓴다 — 자동 제안(SUGGESTED)은 제외
+  const claimsByDoc = new Map<string, PipelineDocument["claims"]>();
+  for (const c of documentClaims.listConfirmed(db)) {
+    const list = claimsByDoc.get(c.documentId) ?? [];
+    list.push({
+      targetGlyphCellId: seedKeyToCellId.get(c.targetGlyphCellId) ?? c.targetGlyphCellId,
+      character: c.character,
+      stance: c.stance,
+      quote: c.quote,
+    });
+    claimsByDoc.set(c.documentId, list);
   }
   const docs: PipelineDocument[] = documents.list(db).map((d) => ({
     id: d.entity.id,
@@ -85,12 +100,7 @@ export function buildPipelineInput(
     independenceGroup: d.entity.independenceGroup,
     derivedFromDocumentId: d.entity.derivedFromDocumentId,
     ...(d.extra.benchmarkLeak ? { benchmarkLeak: true } : {}),
-    claims: d.extra.claims
-      .map((c) => ({
-        ...c,
-        targetGlyphCellId: seedKeyToCellId.get(c.targetGlyphCellId) ?? c.targetGlyphCellId,
-      }))
-      .filter((c) => c.targetGlyphCellId !== ""),
+    claims: (claimsByDoc.get(d.entity.id) ?? []).filter((c) => c.targetGlyphCellId !== ""),
   }));
   const pipelineCell = toPipelineCell(stored.entity, stored.extra.styleJitter);
   const pipelineTab = allTabs.find((t) => t.id === tab.id)!;
@@ -114,7 +124,7 @@ export function runAndPersistAnalysis(
   const input = buildPipelineInput(db, stored, priors);
   const result = analyzeGlyphCell(input);
   const now = new Date().toISOString();
-  const runId = `run-${Date.now()}-${runCounter++}`;
+  const runId = newId("run");
   const cellId = stored.entity.id;
 
   const candidates: GlyphCandidate[] = result.candidates.map((c, i) => ({

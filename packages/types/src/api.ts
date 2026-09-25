@@ -129,10 +129,12 @@ export const GlyphMatrixResponse = z.object({
 export type GlyphMatrixResponse = z.infer<typeof GlyphMatrixResponse>;
 
 export const InitUploadBody = z.object({
-  filename: z.string().min(1),
+  filename: z.string().min(1).max(255),
   byteSize: z.number().int().min(1),
   sourceRecordId: z.string().nullable().default(null),
-  usagePurpose: z.string().min(1),
+  usagePurpose: z.string().min(1).max(500),
+  /** 이미지를 탁본으로 등록할 때 "RUBBING" */
+  declaredType: z.enum(["RUBBING"]).optional(),
 });
 export type InitUploadBody = z.infer<typeof InitUploadBody>;
 

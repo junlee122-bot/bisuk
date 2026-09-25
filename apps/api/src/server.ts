@@ -1,7 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
-import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import {
@@ -33,7 +32,6 @@ import {
   exportEpiDoc,
   exportJson,
   exportReport,
-  inspectUpload,
   jitterPolylines,
   observedPolylines,
   strokeSetSimilarity,
@@ -41,7 +39,12 @@ import {
   type BreakCurve,
   type SeedPriors,
 } from "@seokmun/engine";
-import { dataDir, openDb, wipe, type Db } from "./db";
+import { dataDir, openDb, tx, wipe, type Db } from "./db";
+import { assertSafeConfig, isLoopback, loadConfig, type AppConfig } from "./config";
+import { newId } from "./context";
+import { ALLOWED_UPLOAD_EXTENSIONS, inspectStoredFile, saveStream, uploadKind } from "./uploads";
+import { ensureBootstrapAdmin, ensureDevUsers, registerAuth } from "./auth";
+import { effectiveSetRole } from "./auth/policy";
 import { registerThreeDRoutes } from "./threeD/routes";
 import { buildPipelineInput, runAndPersistAnalysis } from "./analysis";
 import { defaultUiState, isSeeded, seedAll } from "./seed";
@@ -50,6 +53,7 @@ import {
   benchmarkCases,
   comparisons,
   crossMatches,
+  documentClaims,
   documents,
   evidenceRepo,
   frontierItems,
@@ -61,15 +65,8 @@ import {
   steleTabs,
 } from "./repo";
 
-// P0 검사기가 실제로 해석 가능한 형식만 허용한다 (OBJ 변환은 P1)
-const ALLOWED_UPLOAD_EXT = new Set(["ply", "stl", "asc", "xyz"]);
 const UNRESOLVED = new Set(["UNKNOWN", "CONFLICTING", "PARTIALLY_OBSERVED", "ILLEGIBLE"]);
 
-let idCounter = 0;
-/** 밀리초 충돌로 인한 INSERT OR REPLACE 덮어쓰기를 막는 고유 ID */
-function newId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${idCounter++}`;
-}
 
 /**
  * 숨김 벤치마크 셀은 마모(eroded) 획 좌표를 API 밖으로 내보내지 않는다.
@@ -151,24 +148,38 @@ function tabBadges(db: Db, tab: SteleTab) {
   };
 }
 
-export function buildServer(): FastifyInstance {
-  const db = openDb();
-  if (!isSeeded(db)) seedAll(db);
+export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance {
+  const cfg: AppConfig = { ...loadConfig(), ...overrides };
+  assertSafeConfig(cfg);
+  const db = openDb(cfg.dataDir);
+  if (cfg.authMode === "dev") ensureDevUsers(db);
+  if (!isSeeded(db) && cfg.seedDemo) seedAll(db);
   const ctx: Ctx = { db, priors: loadPriors(), bm25: buildSearchIndex(db) };
 
   const app = Fastify({
-    logger: false,
-    bodyLimit: 256 * 1024 * 1024,
+    logger: {
+      level: cfg.logLevel,
+      redact: ["req.headers.cookie", "req.headers.authorization", "req.headers[\"x-seokmun-proxy-secret\"]"],
+    },
+    // JSON 본문 한도 — 파일 업로드는 스트리밍 라우트에서 별도 한도로 처리
+    bodyLimit: 20 * 1024 * 1024,
+    genReqId: () => newId("req"),
   });
-  void app.register(cors, { origin: true });
+  void app.register(cors, {
+    origin: (origin, cb) => cb(null, !origin || cfg.allowedOrigins.includes(origin)),
+    credentials: true,
+  });
+  app.addHook("onReady", async () => {
+    await ensureBootstrapAdmin(db, cfg);
+  });
+  app.addHook("onClose", async () => {
+    db.close();
+  });
 
-  app.addContentTypeParser(
-    "application/octet-stream",
-    { parseAs: "buffer" },
-    (_req, body, done) => done(null, body)
-  );
+  // 업로드는 본문을 메모리에 올리지 않고 스트림 그대로 받는다
+  app.addContentTypeParser("application/octet-stream", (_req, payload, done) => done(null, payload));
 
-  app.setErrorHandler((rawErr, _req, reply) => {
+  app.setErrorHandler((rawErr, req, reply) => {
     if (rawErr instanceof z.ZodError) {
       return reply.status(400).send({
         error: "VALIDATION_ERROR",
@@ -176,13 +187,24 @@ export function buildServer(): FastifyInstance {
         details: rawErr.issues,
       });
     }
-    const err = rawErr as { statusCode?: number; name?: string; message?: string };
+    const err = rawErr as { statusCode?: number; code?: string; name?: string; message?: string };
     const status = typeof err.statusCode === "number" ? err.statusCode : 500;
+    if (status >= 500) {
+      // 내부 경로·스택은 서버 로그에만 남기고 클라이언트에는 요청 ID만 준다
+      req.log.error({ err: rawErr }, "unhandled error");
+      return reply.status(status).send({
+        error: "INTERNAL_ERROR",
+        message: "서버 오류가 발생했습니다. 관리자에게 요청 ID를 알려 주세요.",
+        requestId: req.id,
+      });
+    }
     return reply.status(status).send({
-      error: err.name ?? "INTERNAL_ERROR",
-      message: err.message ?? "internal error",
+      error: err.code ?? err.name ?? "REQUEST_ERROR",
+      message: err.message ?? "요청을 처리할 수 없습니다",
     });
   });
+
+  registerAuth(app, db, cfg);
 
   const notFound = (reply: { status: (n: number) => { send: (b: unknown) => unknown } }, what: string) =>
     reply.status(404).send({ error: "NOT_FOUND", message: `${what}을(를) 찾을 수 없습니다` });
@@ -192,12 +214,19 @@ export function buildServer(): FastifyInstance {
     ok: true,
     modelVersion: MODEL_VERSION,
     corpusVersion: CORPUS_VERSION,
+    authMode: cfg.authMode,
   }));
 
   // ── 연구 세트 ──
-  app.get("/api/research-sets", async () => {
-    const sets = researchSets.list(ctx.db);
-    return sets.map((s) => ({ set: s, stats: setStats(ctx.db, s) }));
+  app.get("/api/research-sets", async (req) => {
+    const sets = researchSets
+      .list(ctx.db)
+      .filter((s) => effectiveSetRole(ctx.db, req.user, s.id) !== null);
+    return sets.map((s) => ({
+      set: s,
+      stats: setStats(ctx.db, s),
+      myRole: effectiveSetRole(ctx.db, req.user, s.id),
+    }));
   });
 
   app.post("/api/research-sets", async (req, reply) => {
@@ -239,6 +268,7 @@ export function buildServer(): FastifyInstance {
       set,
       tabs: tabs.map((t) => ({ tab: t, badges: tabBadges(ctx.db, t) })),
       stats: setStats(ctx.db, set),
+      myRole: effectiveSetRole(ctx.db, req.user, id),
     };
   });
 
@@ -311,13 +341,15 @@ export function buildServer(): FastifyInstance {
       createdAt: now,
       updatedAt: now,
     };
-    steleTabs.put(ctx.db, tab);
-    researchSets.put(ctx.db, {
-      ...set,
-      activeTabOrder: [...set.activeTabOrder, tabId],
-      updatedAt: now,
+    tx(ctx.db, () => {
+      steleTabs.put(ctx.db, tab);
+      researchSets.put(ctx.db, {
+        ...set,
+        activeTabOrder: [...set.activeTabOrder, tabId],
+        updatedAt: now,
+      });
+      auditEvents.record(ctx.db, "CREATE_TAB", "SteleTab", tabId, { title: body.title });
     });
-    auditEvents.record(ctx.db, "CREATE_TAB", "SteleTab", tabId, { title: body.title });
     return reply.status(201).send(tab);
   });
 
@@ -353,21 +385,53 @@ export function buildServer(): FastifyInstance {
     const { id } = req.params as { id: string };
     const tab = steleTabs.get(ctx.db, id);
     if (!tab) return notFound(reply, "탭");
-    steleTabs.put(ctx.db, { ...tab, archived: true, updatedAt: new Date().toISOString() });
-    // 세트 상태에서 고아 참조 제거 (activeTabId·순서·고정)
-    const set = researchSets.get(ctx.db, tab.researchSetId);
-    if (set) {
-      const remaining = set.activeTabOrder.filter((t) => t !== id);
-      researchSets.put(ctx.db, {
-        ...set,
-        activeTabOrder: remaining,
-        pinnedTabIds: set.pinnedTabIds.filter((t) => t !== id),
-        activeTabId: set.activeTabId === id ? (remaining[0] ?? null) : set.activeTabId,
-        updatedAt: new Date().toISOString(),
-      });
-    }
-    auditEvents.record(ctx.db, "ARCHIVE_TAB", "SteleTab", id, {});
+    tx(ctx.db, () => {
+      steleTabs.put(ctx.db, { ...tab, archived: true, updatedAt: new Date().toISOString() });
+      // 세트 상태에서 고아 참조 제거 (activeTabId·순서·고정)
+      const set = researchSets.get(ctx.db, tab.researchSetId);
+      if (set) {
+        const remaining = set.activeTabOrder.filter((t) => t !== id);
+        researchSets.put(ctx.db, {
+          ...set,
+          activeTabOrder: remaining,
+          pinnedTabIds: set.pinnedTabIds.filter((t) => t !== id),
+          activeTabId: set.activeTabId === id ? (remaining[0] ?? null) : set.activeTabId,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      auditEvents.record(ctx.db, "ARCHIVE_TAB", "SteleTab", id, {});
+    });
     return { ok: true };
+  });
+
+  // 보관 탭 복구 (닫기 실수 되돌리기)
+  app.post("/api/stele-tabs/:id/unarchive", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const tab = steleTabs.get(ctx.db, id);
+    if (!tab) return notFound(reply, "탭");
+    if (!tab.archived) return { ok: true, alreadyActive: true };
+    tx(ctx.db, () => {
+      steleTabs.put(ctx.db, { ...tab, archived: false, updatedAt: new Date().toISOString() });
+      const set = researchSets.get(ctx.db, tab.researchSetId);
+      if (set && !set.activeTabOrder.includes(id)) {
+        researchSets.put(ctx.db, {
+          ...set,
+          activeTabOrder: [...set.activeTabOrder, id],
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      auditEvents.record(ctx.db, "UNARCHIVE_TAB", "SteleTab", id, {});
+    });
+    return { ok: true };
+  });
+
+  app.get("/api/research-sets/:id/archived-tabs", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!researchSets.get(ctx.db, id)) return notFound(reply, "연구 세트");
+    return steleTabs
+      .listBySet(ctx.db, id)
+      .filter((t) => t.archived)
+      .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt }));
   });
 
   app.get("/api/stele-tabs/:id/maturity", async (req, reply) => {
@@ -390,77 +454,105 @@ export function buildServer(): FastifyInstance {
     return glyphCells.listByTab(ctx.db, id).map(sanitizeCell);
   });
 
-  // ── 자산 업로드 (importer) ──
-  app.post("/api/stele-tabs/:id/assets/upload", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const tab = steleTabs.get(ctx.db, id);
-    if (!tab) return notFound(reply, "탭");
-    const query = InitUploadBody.omit({ byteSize: true }).parse(req.query);
-    const body = req.body;
-    if (!Buffer.isBuffer(body) || body.length === 0) {
-      return reply.status(400).send({
-        error: "EMPTY_BODY",
-        message: "application/octet-stream 본문으로 파일을 전송해야 합니다",
+  // ── 자산 업로드 (스트리밍) ──
+  // 본문은 application/octet-stream 스트림 — 메모리에 올리지 않고 디스크로 흘려 쓴다
+  app.post(
+    "/api/stele-tabs/:id/assets/upload",
+    { bodyLimit: cfg.maxUploadBytes },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const tab = steleTabs.get(ctx.db, id);
+      if (!tab) return notFound(reply, "탭");
+      const query = InitUploadBody.omit({ byteSize: true }).parse(req.query);
+      const body = req.body as NodeJS.ReadableStream | undefined;
+      if (!body || typeof (body as { pipe?: unknown }).pipe !== "function") {
+        return reply.status(400).send({
+          error: "EMPTY_BODY",
+          message: "application/octet-stream 본문으로 파일을 전송해야 합니다",
+        });
+      }
+      const kind = uploadKind(query.filename, query.declaredType ?? null);
+      if (!kind) {
+        return reply.status(400).send({
+          error: "UNSUPPORTED_FORMAT",
+          message: `지원하지 않는 확장자입니다 — 허용: ${ALLOWED_UPLOAD_EXTENSIONS.join(", ")}`,
+        });
+      }
+      if (query.sourceRecordId && !sourceRecords.get(ctx.db, query.sourceRecordId)) {
+        return reply.status(400).send({
+          error: "UNKNOWN_SOURCE_RECORD",
+          message: `출처 레코드(${query.sourceRecordId})가 존재하지 않습니다`,
+        });
+      }
+      const assetId = newId("asset-upload");
+      const storageKey = path.join("originals", assetId, path.basename(query.filename));
+      const absPath = path.join(dataDir(), storageKey);
+      const saved = await saveStream(body as unknown as import("node:stream").Readable, absPath, cfg.maxUploadBytes);
+      let inspection: ReturnType<typeof inspectStoredFile>;
+      try {
+        inspection = inspectStoredFile(kind, absPath, saved.bytes, cfg.fullParseMaxBytes);
+      } catch (err) {
+        req.log.warn({ err }, "upload inspection failed");
+        inspection = {
+          qualityReport: {
+            format: kind.ext.toUpperCase(),
+            vertexCount: null,
+            triangleCount: null,
+            pointCount: null,
+            hasNormals: null,
+            hasColors: null,
+            boundingBox: null,
+            unitGuess: null,
+            warnings: ["파일 검사 중 오류 — 원본은 보존되었습니다. 형식을 확인하세요"],
+          },
+          image: null,
+        };
+      }
+      const asset: SteleAsset = {
+        id: assetId,
+        steleTabId: id,
+        assetType: kind.assetType,
+        provenance: "REAL_USER_UPLOAD",
+        demoLabel: null,
+        originalFilename: query.filename,
+        mimeType: kind.mimeType,
+        format: inspection.qualityReport.format,
+        byteSize: saved.bytes,
+        checksumSha256: saved.sha256,
+        sourceRecordId: query.sourceRecordId,
+        licenseType: null,
+        licenseVerifiedAt: null,
+        licenseVerifiedBy: null,
+        usagePurpose: query.usagePurpose,
+        coordinateSystem: null,
+        unit: inspection.qualityReport.unitGuess,
+        qualityLevel: "FULL",
+        isOriginal: true,
+        parentAssetId: null,
+        processingStatus: "READY",
+        rightsState: "VERIFY_REQUIRED",
+        qualityReport: inspection.qualityReport,
+        storageKey,
+        meshParams: null,
+        imageInfo: inspection.image,
+        scaleCalibration: null,
+        alignment: null,
+        createdAt: new Date().toISOString(),
+      };
+      tx(ctx.db, () => {
+        steleAssets.put(ctx.db, asset);
+        auditEvents.record(ctx.db, "UPLOAD_ASSET", "SteleAsset", assetId, {
+          filename: query.filename,
+          byteSize: saved.bytes,
+          checksum: saved.sha256,
+          assetType: kind.assetType,
+          usagePurpose: query.usagePurpose,
+          rightsState: "VERIFY_REQUIRED",
+        });
       });
+      return reply.status(201).send(asset);
     }
-    const ext = query.filename.toLowerCase().split(".").pop() ?? "";
-    if (!ALLOWED_UPLOAD_EXT.has(ext)) {
-      return reply.status(400).send({
-        error: "UNSUPPORTED_FORMAT",
-        message: `지원하지 않는 확장자(${ext}) — PLY/STL/ASC/XYZ 만 등록할 수 있습니다`,
-      });
-    }
-    if (query.sourceRecordId && !sourceRecords.get(ctx.db, query.sourceRecordId)) {
-      return reply.status(400).send({
-        error: "UNKNOWN_SOURCE_RECORD",
-        message: `출처 레코드(${query.sourceRecordId})가 존재하지 않습니다`,
-      });
-    }
-    const checksum = createHash("sha256").update(body).digest("hex");
-    const assetId = newId("asset-upload");
-    const dir = path.join(dataDir(), "originals", assetId);
-    mkdirSync(dir, { recursive: true });
-    const storageKey = path.join("originals", assetId, path.basename(query.filename));
-    writeFileSync(path.join(dataDir(), storageKey), body, { flag: "wx" });
-    const qualityReport = inspectUpload(query.filename, body);
-    const asset: SteleAsset = {
-      id: assetId,
-      steleTabId: id,
-      assetType: ext === "ply" || ext === "stl" ? "MESH" : "POINT_CLOUD",
-      provenance: "REAL_USER_UPLOAD",
-      demoLabel: null,
-      originalFilename: query.filename,
-      mimeType: "application/octet-stream",
-      format: qualityReport.format,
-      byteSize: body.length,
-      checksumSha256: checksum,
-      sourceRecordId: query.sourceRecordId,
-      licenseType: null,
-      licenseVerifiedAt: null,
-      licenseVerifiedBy: null,
-      usagePurpose: query.usagePurpose,
-      coordinateSystem: null,
-      unit: qualityReport.unitGuess,
-      qualityLevel: "FULL",
-      isOriginal: true,
-      parentAssetId: null,
-      processingStatus: "READY",
-      rightsState: "VERIFY_REQUIRED",
-      qualityReport,
-      storageKey,
-      meshParams: null,
-      createdAt: new Date().toISOString(),
-    };
-    steleAssets.put(ctx.db, asset);
-    auditEvents.record(ctx.db, "UPLOAD_ASSET", "SteleAsset", assetId, {
-      filename: query.filename,
-      byteSize: body.length,
-      checksum,
-      usagePurpose: query.usagePurpose,
-      rightsState: "VERIFY_REQUIRED",
-    });
-    return reply.status(201).send(asset);
-  });
+  );
 
   app.get("/api/assets/:id/status", async (req, reply) => {
     const { id } = req.params as { id: string };
@@ -717,8 +809,11 @@ export function buildServer(): FastifyInstance {
     for (const hit of hits) {
       const doc = docsById.get(hit.id);
       if (!doc) continue;
+      const claims = documentClaims
+        .listByDocument(ctx.db, doc.entity.id)
+        .filter((c) => c.status === "CONFIRMED");
       if (query.stance !== "ALL") {
-        const hasStance = doc.extra.claims.some((c) => c.stance === query.stance);
+        const hasStance = claims.some((c) => c.stance === query.stance);
         if (!hasStance) continue;
       }
       if (query.tabId && !doc.entity.relatedTabIds.includes(query.tabId)) continue;
@@ -727,7 +822,12 @@ export function buildServer(): FastifyInstance {
         score: Math.round(hit.score * 1000) / 1000,
         snippet: hit.snippet,
         matchOffsets: hit.matchOffsets,
-        claims: doc.extra.claims,
+        claims: claims.map((c) => ({
+          targetGlyphCellId: c.targetGlyphCellId,
+          character: c.character,
+          stance: c.stance,
+          quote: c.quote,
+        })),
         benchmarkLeak: Boolean(doc.extra.benchmarkLeak),
       });
       if (out.length >= query.limit) break;
@@ -778,7 +878,7 @@ export function buildServer(): FastifyInstance {
         fileStorageKey: null,
         createdAt: now,
       },
-      extra: { benchmarkLeak: false, claims: [] },
+      extra: { benchmarkLeak: false },
     });
     ctx.bm25 = buildSearchIndex(ctx.db);
     auditEvents.record(ctx.db, "UPLOAD_DOCUMENT", "CorpusDocument", id, {
@@ -795,7 +895,7 @@ export function buildServer(): FastifyInstance {
     if (!doc) return notFound(reply, "문헌");
     return {
       ...doc.entity,
-      claims: doc.extra.claims,
+      claims: documentClaims.listByDocument(ctx.db, id),
       benchmarkLeak: Boolean(doc.extra.benchmarkLeak),
     };
   });
@@ -864,15 +964,17 @@ export function buildServer(): FastifyInstance {
       createdAt: now,
       updatedAt: now,
     };
-    steleTabs.put(ctx.db, tab);
-    researchSets.put(ctx.db, {
-      ...set,
-      activeTabOrder: [...set.activeTabOrder, tabId],
-      updatedAt: now,
-    });
     const updated = { ...item, promotedTabId: tabId };
-    frontierItems.put(ctx.db, updated);
-    auditEvents.record(ctx.db, "FRONTIER_PROMOTE", "FrontierWatchItem", id, { tabId });
+    tx(ctx.db, () => {
+      steleTabs.put(ctx.db, tab);
+      researchSets.put(ctx.db, {
+        ...set,
+        activeTabOrder: [...set.activeTabOrder, tabId],
+        updatedAt: now,
+      });
+      frontierItems.put(ctx.db, updated);
+      auditEvents.record(ctx.db, "FRONTIER_PROMOTE", "FrontierWatchItem", id, { tabId });
+    });
     return reply.status(201).send({ item: updated, tab });
   });
 
@@ -971,10 +1073,20 @@ export function buildServer(): FastifyInstance {
   // ── 감사 로그 ──
   app.get("/api/audit", async (req) => {
     const query = z
-      .object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
+      .object({
+        limit: z.coerce.number().int().min(1).max(1000).default(100),
+        beforeSeq: z.coerce.number().int().positive().optional(),
+        entityType: z.string().optional(),
+        entityId: z.string().optional(),
+        actor: z.string().optional(),
+        action: z.string().optional(),
+        since: z.string().optional(),
+      })
       .parse(req.query);
-    return auditEvents.list(ctx.db, query.limit);
+    return auditEvents.list(ctx.db, query);
   });
+
+  app.get("/api/audit/verify", async () => auditEvents.verify(ctx.db));
 
   // ── 평가 (벤치마크 — 정답은 이 경로에서만 읽는다) ──
   app.post("/api/evaluation/run", async () => {
@@ -1024,12 +1136,18 @@ export function buildServer(): FastifyInstance {
   registerThreeDRoutes(app, ctx.db);
 
   // ── 개발용 리셋 (E2E 결정성) ──
-  app.post("/api/dev/reset", async (_req, reply) => {
-    if (process.env.NODE_ENV === "production") {
-      return reply.status(403).send({ error: "FORBIDDEN", message: "운영 환경에서는 사용 불가" });
+  // 명시적 플래그 + dev 인증 모드 + loopback 요청일 때만 동작 (연구실 서버 데이터 보호)
+  app.post("/api/dev/reset", async (req, reply) => {
+    if (!cfg.enableDevReset || cfg.authMode !== "dev" || !isLoopback(req.ip)) {
+      return reply.status(403).send({
+        error: "DEV_RESET_DISABLED",
+        message:
+          "개발용 초기화는 SEOKMUN_ENABLE_DEV_RESET=1 + SEOKMUN_AUTH_MODE=dev + 로컬 요청에서만 허용됩니다",
+      });
     }
     wipe(ctx.db);
     seedAll(ctx.db);
+    ensureDevUsers(ctx.db);
     ctx.bm25 = buildSearchIndex(ctx.db);
     auditEvents.record(ctx.db, "DEV_RESET", "System", "db", {});
     return { ok: true };

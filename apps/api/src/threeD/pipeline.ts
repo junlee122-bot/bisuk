@@ -30,14 +30,12 @@ import {
   type SlabParams,
 } from "@seokmun/engine";
 import { dataDir, type Db } from "../db";
+import { newId } from "../context";
 import { auditEvents, glyphCells } from "../repo";
 import { meshArraysToGlb } from "./glb";
 import { assetVariants, threeDJobs } from "./store";
 
-let idCounter = 0;
-function newId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${idCounter++}`;
-}
+
 
 function sha256(buf: Uint8Array): string {
   return createHash("sha256").update(buf).digest("hex");

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const WEB_PORT = 3100;
@@ -30,11 +31,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "pnpm --filter @seokmun/api start",
+      // --dev: 개발 인증 + 초기화 허용. 데이터는 E2E 전용 디렉터리 (연구 데이터와 분리)
+      command: "pnpm --filter @seokmun/api start:dev",
       url: `http://localhost:${API_PORT}/api/health`,
       reuseExistingServer: true,
       cwd: "..",
       timeout: 60_000,
+      env: { SEOKMUN_DATA_DIR: path.resolve(import.meta.dirname, ".e2e-data") },
     },
     {
       command: "pnpm --filter @seokmun/web start",

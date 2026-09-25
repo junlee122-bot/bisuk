@@ -84,30 +84,40 @@ export function SteleCameraRig({
   }, [mode, selectedId, cells, params, invalidate]);
 
   // 프레젠테이션 북마크 flyTo — 500–900ms 감속, 사용자 입력 시 즉시 중단,
-  // prefers-reduced-motion에서는 즉시 이동
-  useEffect(() => {
-    if (!flyTo || !controlsRef.current) return;
+  // prefers-reduced-motion에서는 즉시 이동.
+  // 컨트롤이 아직 준비되지 않았으면 대기열에 두었다가 첫 프레임에 적용한다 (클릭 유실 방지)
+  const pendingFlyRef = useRef<FlyToRequest | null>(null);
+  const applyFly = (req: FlyToRequest) => {
     const c = controlsRef.current;
+    if (!c) {
+      pendingFlyRef.current = req;
+      invalidate();
+      return;
+    }
+    pendingFlyRef.current = null;
     const reduced =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
     if (reduced) {
-      c.object.position.set(...flyTo.position);
-      c.target.set(...flyTo.target);
+      c.object.position.set(...req.position);
+      c.target.set(...req.target);
       c.update();
       invalidate();
-      onCameraChange({ position: flyTo.position, target: flyTo.target });
+      onCameraChange({ position: req.position, target: req.target });
       return;
     }
     animRef.current = {
       fromPos: c.object.position.clone(),
-      toPos: new THREE.Vector3(...flyTo.position),
+      toPos: new THREE.Vector3(...req.position),
       fromTarget: c.target.clone(),
-      toTarget: new THREE.Vector3(...flyTo.target),
+      toTarget: new THREE.Vector3(...req.target),
       t: 0,
-      duration: Math.min(0.9, Math.max(0.5, flyTo.duration ?? 0.7)),
+      duration: Math.min(0.9, Math.max(0.5, req.duration ?? 0.7)),
     };
     invalidate();
+  };
+  useEffect(() => {
+    if (flyTo) applyFly(flyTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo?.seq]);
 
@@ -123,6 +133,7 @@ export function SteleCameraRig({
   }, []);
 
   useFrame((_, delta) => {
+    if (pendingFlyRef.current && controlsRef.current) applyFly(pendingFlyRef.current);
     const anim = animRef.current;
     const c = controlsRef.current;
     if (!anim || !c) return;
