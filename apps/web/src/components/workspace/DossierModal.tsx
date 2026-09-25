@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { DemoBadge, ReadingBadge, RightsBadge } from "@/components/badges";
 import { GlyphPatchSvg } from "@/components/GlyphPatchSvg";
+import { faceLabelFor } from "@seokmun/engine";
 
 export function DossierModal({
   glyphCellId,
@@ -68,7 +69,7 @@ export function DossierModal({
                     <p className="text-ink-2">아직 분석이 실행되지 않았습니다.</p>
                   )}
                   <p className="mt-1 text-xs text-ink-3">
-                    {data.tab.title} · {data.glyphCell.faceId} · {data.glyphCell.lineIndex}행{" "}
+                    {data.tab.title} · {faceLabelFor(data.glyphCell.faceId)} · {data.glyphCell.lineIndex}행{" "}
                     {data.glyphCell.sequenceIndex}자 · 관측도{" "}
                     {data.glyphCell.observabilityScore}
                   </p>
