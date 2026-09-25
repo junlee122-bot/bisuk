@@ -60,7 +60,9 @@ const ROUTE_ROLES: Record<string, MinRole> = {
   "POST /api/3d/adapters/:adapterId/validate": "PI",
   "POST /api/glyphs/:id/revert": "PI",
   "POST /api/stele-tabs/:id/unarchive": "RESEARCHER",
-  "POST /api/variants/import-unihan": "PI",
+  "POST /api/variant-pairs/import-unihan": "PI",
+  "DELETE /api/variant-pairs": "PI",
+  "DELETE /api/chronology/:character": "PI",
   // 세션 사용자 본인 작업
   "GET /api/auth/me": "GUEST",
   "POST /api/auth/password": "GUEST",
@@ -103,6 +105,13 @@ export function resolveSetId(
   if (routeUrl.startsWith("/api/readings/:id")) {
     const r = params.id ? readings.get(db, params.id) : null;
     return r ? tabSet(r.steleTabId) : undefined;
+  }
+  if (routeUrl.startsWith("/api/analysis-runs/:id")) {
+    const row = params.id
+      ? (db.prepare("SELECT glyph_cell_id FROM analysis_runs WHERE id = ?").get(params.id) as { glyph_cell_id: string } | undefined)
+      : undefined;
+    const c = row ? glyphCells.get(db, row.glyph_cell_id) : null;
+    return c ? tabSet(c.entity.steleTabId) : undefined;
   }
   if (routeUrl.startsWith("/api/comments/:id")) {
     const c = params.id ? comments.get(db, params.id) : null;

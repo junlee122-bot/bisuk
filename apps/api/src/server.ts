@@ -23,6 +23,9 @@ import {
 } from "@seokmun/types";
 import {
   Bm25Index,
+  DEFAULT_VARIANT_PAIRS,
+  VariantRegistry,
+  wilsonInterval,
   analyzeGlyphCell,
   buildLineages,
   checkExportRights,
@@ -72,7 +75,10 @@ import {
   sourceRecords,
   steleAssets,
   steleTabs,
+  bibliography as bibliographyRepo,
+  variantPairs,
 } from "./repo";
+import { registerResearchRoutes } from "./research";
 
 const UNRESOLVED = new Set(["UNKNOWN", "CONFLICTING", "PARTIALLY_OBSERVED", "ILLEGIBLE"]);
 
@@ -89,12 +95,15 @@ function loadPriors(): SeedPriors {
 }
 
 function buildSearchIndex(db: Db): Bm25Index {
+  // 데모 유사자 목록 + 연구실 등록 이체자(Unihan 포함)로 질의 확장
+  const registry = new VariantRegistry([...DEFAULT_VARIANT_PAIRS, ...variantPairs.list(db)]);
   return new Bm25Index(
     documents.list(db).map((d) => ({
       id: d.entity.id,
       title: d.entity.title,
       content: d.entity.content,
-    }))
+    })),
+    registry
   );
 }
 
@@ -952,6 +961,8 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
       .object({
         format: z.enum(["json", "csv", "epidoc", "report"]),
         audience: z.enum(["INTERNAL", "PUBLIC"]).default("INTERNAL"),
+        /** EpiDoc 단일 비석 파일 */
+        tabId: z.string().optional(),
       })
       .parse(req.query);
     const tabs = steleTabs.listBySet(ctx.db, id).filter((t) => !t.archived);
@@ -984,7 +995,25 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
         .listByCell(ctx.db, c.id)
         .filter((h) => h.id.startsWith(`hyp-${runId}-`));
     });
+    const tabReadings = tabs.flatMap((t) => readingsRepo.listByTab(ctx.db, t.id));
+    const docs = documents.list(ctx.db).map((d) => d.entity);
+    const bibIds = new Set([
+      ...tabReadings.map((r) => r.bibliographyId),
+      ...docs.map((d) => d.bibliographyId),
+    ].filter(Boolean) as string[]);
     const input = {
+      readings: tabReadings,
+      bibliography: bibliographyRepo.list(ctx.db).filter((b) => bibIds.has(b.id)),
+      documents: docs
+        .filter((d) => d.relatedTabIds.some((tid) => tabs.some((t) => t.id === tid)))
+        .map((d) => ({
+          id: d.id,
+          title: d.title,
+          isFictional: d.isFictional,
+          bibliographyId: d.bibliographyId,
+          publisher: d.publisher,
+          publishedAt: d.publishedAt,
+        })),
       researchSet: set,
       tabs,
       sourceRecords: tabs.flatMap((t) => sourceRecords.listByTab(ctx.db, t.id)),
@@ -1009,10 +1038,12 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
       case "csv":
         content = exportCsv(input);
         contentType = "text/csv";
+        // UTF-8 BOM 포함 — 한국어 Excel에서 바로 열린다
         ext = "csv";
         break;
       case "epidoc":
-        content = exportEpiDoc(input);
+        if (query.tabId && !tabs.some((t) => t.id === query.tabId)) return notFound(reply, "탭");
+        content = exportEpiDoc(input, query.tabId ? { tabId: query.tabId } : {});
         contentType = "application/xml";
         ext = "xml";
         break;
@@ -1030,7 +1061,7 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
       .header("content-type", `${contentType}; charset=utf-8`)
       .header(
         "content-disposition",
-        `attachment; filename="seokmun-${id}-${query.format}.${ext}"`
+        `attachment; filename="seokmun-${query.tabId ?? id}-${query.format}.${ext}"`
       )
       .send(content);
   });
@@ -1089,15 +1120,26 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
         abstained,
         autoAcceptPrecision:
           correctAuto + wrongAuto > 0 ? correctAuto / (correctAuto + wrongAuto) : null,
+        /** 자동 확정 오류율 Wilson 95% 구간 — 표본이 작으면 '0%'라도 상한이 크다 */
+        falseAutoAcceptRate: wilsonInterval(wrongAuto, correctAuto + wrongAuto),
       },
       modelVersion: MODEL_VERSION,
       corpusVersion: CORPUS_VERSION,
-      note: "가상 벤치마크(허구 데이터) 기준 평가 — 정답은 분석 파이프라인에 노출되지 않는다.",
+      note:
+        "가상 벤치마크(허구 데이터) 기준 평가 — 정답은 분석 파이프라인에 노출되지 않는다. 사례 수가 매우 적어 성능 추정이 아니라 회귀 확인용이다. 채택 판독까지 포함한 평가는 POST /api/evaluation/v2.",
     };
     auditEvents.record(ctx.db, "EVALUATION_RUN", "BenchmarkSuite", "demo", report.metrics);
     return report;
   });
 
+  registerResearchRoutes(app, {
+    db: ctx.db,
+    priors: ctx.priors,
+    reindex: () => {
+      ctx.bm25 = buildSearchIndex(ctx.db);
+    },
+    searchDocuments: (q, limit) => ctx.bm25.search(q, limit),
+  });
   registerThreeDRoutes(app, ctx.db);
   registerShowcaseRoutes(app, ctx.db);
   registerEditingRoutes(app, ctx.db);

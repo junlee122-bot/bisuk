@@ -331,6 +331,10 @@ export const HypothesisEvidence = z.object({
   independenceGroup: z.string().default(""),
   reliabilityTier: z.number().int().min(1).max(7).default(7),
   note: z.string().default(""),
+  /** 인용 일치 방식 — 정확/정규화/이체자 접기 */
+  citationMatchType: z.enum(["EXACT", "NORMALIZED", "VARIANT_FOLDED", "NONE"]).optional(),
+  /** 인용이 대상 셀을 특정하는 정도 — 위치 명시/글자만/없음 */
+  targetSpecificity: z.enum(["POSITIONAL", "CHARACTER", "NONE"]).optional(),
 });
 export type HypothesisEvidence = z.infer<typeof HypothesisEvidence>;
 
