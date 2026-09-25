@@ -150,7 +150,27 @@ describe("decision gate", () => {
     const r = runDecisionGate(base);
     expect(r.passed).toBe(true);
     expect(r.outcome).toBe("AUTO_ACCEPTED");
-    expect(r.ruleTrace).toHaveLength(8);
+    expect(r.ruleTrace).toHaveLength(10);
+    // 입력에 없는 v2 항목은 '통과'가 아니라 미평가로 표시된다
+    const chrono = r.ruleTrace.find((t) => t.rule === "strong_chronology_contradiction")!;
+    expect(chrono.status).toBe("NOT_EVALUATED");
+    expect(chrono.passed).toBe(false);
+  });
+  it("미보정(UNCALIBRATED) → 자동 채택 금지, 데모 휴리스틱은 미평가로 표시", () => {
+    const r = runDecisionGate({ ...base, calibrationKind: "UNCALIBRATED" });
+    expect(r.passed).toBe(false);
+    expect(r.failedRules).toContain("calibration_available");
+    const demo = runDecisionGate({ ...base, calibrationKind: "DEMO_HEURISTIC" });
+    expect(demo.passed).toBe(true);
+    expect(demo.ruleTrace.find((t) => t.rule === "calibration_available")?.status).toBe("NOT_EVALUATED");
+  });
+  it("반대 계보 우세 → 자동 채택 금지", () => {
+    const r = runDecisionGate({ ...base, counterEvidenceDominant: true });
+    expect(r.failedRules).toContain("counter_evidence_not_dominant");
+  });
+  it("연대 모순 평가 시 실제 값으로 판정한다", () => {
+    const r = runDecisionGate({ ...base, chronologyEvaluated: true, strongChronologyContradiction: true });
+    expect(r.failedRules).toContain("strong_chronology_contradiction");
   });
   it("신뢰도 미달 → 실패, 규칙 추적 포함", () => {
     const r = runDecisionGate({ ...base, calibratedConfidence: 0.5 });

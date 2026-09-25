@@ -1,7 +1,9 @@
 /**
- * 하이브리드 문헌 검색 — BM25 + CJK 문자 unigram/bigram + 이체자 확장.
- * P0에서는 인메모리 인덱스로 동작하며 PostgreSQL FTS 이전을 전제로 인터페이스를 유지한다.
+ * 문헌 검색 — BM25 + 한자 unigram/bigram + 한글 어절·bigram + 이체자 확장.
+ * 인메모리 인덱스이며, 의미 기반(임베딩) 검색은 아니다.
+ * 한자 판별은 Unicode Script=Han (확장 B 이후 보조 평면 포함)으로 한다.
  */
+import { VariantRegistry } from "./variants";
 
 export interface SearchableDoc {
   id: string;
@@ -16,7 +18,7 @@ export interface SearchHit {
   snippet: string;
 }
 
-/** 데모 이체자/유사자 확장 테이블 */
+/** 데모 이체자/유사자 확장 테이블 (하위 호환 — 실제 확장은 VariantRegistry 사용) */
 export const VARIANT_TABLE: Record<string, string[]> = {
   大: ["太"],
   太: ["大"],
@@ -24,7 +26,10 @@ export const VARIANT_TABLE: Record<string, string[]> = {
   戸: ["戶"],
 };
 
-const CJK_RE = /[㐀-鿿豈-﫿]/;
+const CJK_RE = /\p{Script=Han}/u;
+const DEFAULT_REGISTRY = new VariantRegistry();
+/** 이체자로 확장된 토큰의 가중치 — 정확 일치를 우선한다 */
+export const VARIANT_TOKEN_WEIGHT = 0.6;
 
 export function tokenize(text: string): string[] {
   const tokens: string[] = [];
@@ -59,13 +64,31 @@ export function tokenize(text: string): string[] {
   return tokens;
 }
 
-export function expandQueryTokens(tokens: string[]): string[] {
-  const out = [...tokens];
+/** 질의 토큰 + 이체자 토큰 (한 글자·두 글자 한자 토큰을 확장) */
+export function expandQueryTokens(tokens: string[], registry: VariantRegistry = DEFAULT_REGISTRY): string[] {
+  return expandQueryTokensWeighted(tokens, registry).map((t) => t.token);
+}
+
+export function expandQueryTokensWeighted(
+  tokens: string[],
+  registry: VariantRegistry = DEFAULT_REGISTRY
+): Array<{ token: string; weight: number }> {
+  const out = new Map<string, number>();
+  for (const t of tokens) out.set(t, 1);
   for (const t of tokens) {
-    const variants = VARIANT_TABLE[t];
-    if (variants) out.push(...variants);
+    const chars = [...t];
+    if (chars.length === 1) {
+      for (const v of registry.expand(t)) if (!out.has(v)) out.set(v, VARIANT_TOKEN_WEIGHT);
+    } else if (chars.length === 2 && chars.every((c) => CJK_RE.test(c))) {
+      for (const a of registry.classOf(chars[0]!)) {
+        for (const b of registry.classOf(chars[1]!)) {
+          const v = a + b;
+          if (!out.has(v)) out.set(v, VARIANT_TOKEN_WEIGHT);
+        }
+      }
+    }
   }
-  return [...new Set(out)];
+  return [...out].map(([token, weight]) => ({ token, weight }));
 }
 
 interface IndexedDoc {
@@ -80,7 +103,7 @@ export class Bm25Index {
   private df = new Map<string, number>();
   private avgLen = 0;
 
-  constructor(docs: SearchableDoc[]) {
+  constructor(docs: SearchableDoc[], private registry: VariantRegistry = DEFAULT_REGISTRY) {
     for (const d of docs) {
       const tokens = tokenize(`${d.title} ${d.content}`);
       const tf = new Map<string, number>();
@@ -95,21 +118,22 @@ export class Bm25Index {
   }
 
   search(query: string, limit = 10): SearchHit[] {
-    const qTokens = expandQueryTokens(tokenize(query));
-    if (qTokens.length === 0) return [];
+    const weighted = expandQueryTokensWeighted(tokenize(query), this.registry);
+    if (weighted.length === 0) return [];
+    const qTokens = weighted.map((w) => w.token);
     const k1 = 1.2;
     const b = 0.75;
     const N = this.docs.length;
     const hits: SearchHit[] = [];
     for (const doc of this.docs) {
       let score = 0;
-      for (const t of qTokens) {
+      for (const { token: t, weight } of weighted) {
         const f = doc.tf.get(t) ?? 0;
         if (f === 0) continue;
         const df = this.df.get(t) ?? 0;
         const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
         score +=
-          (idf * f * (k1 + 1)) /
+          (weight * idf * f * (k1 + 1)) /
           (f + k1 * (1 - b + (b * doc.length) / Math.max(1, this.avgLen)));
       }
       if (score <= 0) continue;

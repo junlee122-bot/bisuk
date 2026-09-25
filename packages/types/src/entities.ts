@@ -345,6 +345,18 @@ export const DecisionGateInput = z.object({
   benchmarkLeakage: z.boolean(),
   hasCompetingCandidateWithEvidence: z.boolean().default(false),
   observabilityScore: z.number().min(0).max(1).default(0),
+  /**
+   * v2 — 아래 필드가 없으면 해당 규칙은 NOT_EVALUATED(미평가)로 표시된다.
+   * 데이터가 없는 검사를 '통과'처럼 보이게 하지 않기 위함.
+   */
+  /** 연대 증거(글자 최초 확인 연도·비석 연대)가 있어 연대 모순을 실제로 검사했는가 */
+  chronologyEvaluated: z.boolean().optional(),
+  /** 누출 문서·그 파생 문서가 근거에 섞였는지 계보까지 검사했는가 */
+  benchmarkLeakageEvaluated: z.boolean().optional(),
+  /** 1위 후보의 검증된 반대 계보가 지지 계보 이상인가 */
+  counterEvidenceDominant: z.boolean().optional(),
+  /** 신뢰도 보정 상태 */
+  calibrationKind: z.enum(["FITTED", "DEMO_HEURISTIC", "UNCALIBRATED"]).optional(),
 });
 export type DecisionGateInput = z.infer<typeof DecisionGateInput>;
 

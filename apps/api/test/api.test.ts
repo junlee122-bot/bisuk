@@ -174,7 +174,7 @@ describe("자율 분석 → Decision Gate → Dossier", () => {
     );
     expect(g1.documentIds.length).toBeGreaterThanOrEqual(3);
     expect(body.modelVersion).toBeTruthy();
-    expect(body.decision.ruleTrace).toHaveLength(8);
+    expect(body.decision.ruleTrace).toHaveLength(10);
   });
 });
 

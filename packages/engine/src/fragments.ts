@@ -58,3 +58,43 @@ export function evaluateJoin(
     joinConfidence: Math.round(joinConfidence * 1000) / 1000,
   };
 }
+
+/**
+ * 최적 접합 오프셋 탐색 — 거친 격자 후 황금분할로 좁혀 joinConfidence 최대 위치를 찾는다.
+ * 사용자가 슬라이더로 맞추기 전에 자동 제안값으로 쓴다.
+ */
+export function optimizeJoinOffset(
+  curveA: BreakCurve,
+  curveB: BreakCurve,
+  range: [number, number] = [-0.5, 0.5],
+  samples = 50
+): { offset: number; result: JoinResult } {
+  const score = (o: number) => {
+    const r = evaluateJoin(curveA, curveB, o, samples);
+    // 동점일 때 간격이 작은 쪽
+    return r.joinConfidence - r.meanGap * 1e-3;
+  };
+  const steps = 40;
+  let best = range[0];
+  let bestScore = -Infinity;
+  for (let i = 0; i <= steps; i++) {
+    const o = range[0] + ((range[1] - range[0]) * i) / steps;
+    const s = score(o);
+    if (s > bestScore) {
+      bestScore = s;
+      best = o;
+    }
+  }
+  const h = (range[1] - range[0]) / steps;
+  let lo = Math.max(range[0], best - h);
+  let hi = Math.min(range[1], best + h);
+  const g = (Math.sqrt(5) - 1) / 2;
+  for (let i = 0; i < 40; i++) {
+    const m1 = hi - g * (hi - lo);
+    const m2 = lo + g * (hi - lo);
+    if (score(m1) >= score(m2)) hi = m2;
+    else lo = m1;
+  }
+  const offset = Math.round(((lo + hi) / 2) * 10000) / 10000;
+  return { offset, result: evaluateJoin(curveA, curveB, offset, samples) };
+}
