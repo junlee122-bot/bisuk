@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Reading } from "./lab";
 import {
   CorpusDocument,
   CrossSteleMatch,
@@ -89,6 +90,9 @@ export const DossierResponse = z.object({
     })
   ),
   decision: DecisionGateResult.nullable(),
+  /** 판독자별 판독 (출판 판독문·연구원·자동 분석) */
+  readings: z.array(Reading).default([]),
+  adoptedReadingId: z.string().nullable().default(null),
   modelVersion: z.string(),
   corpusVersion: z.string(),
   rightsState: RightsState,
@@ -97,8 +101,8 @@ export const DossierResponse = z.object({
 export type DossierResponse = z.infer<typeof DossierResponse>;
 
 export const CompareGlyphsBody = z.object({
-  glyphCellIds: z.array(z.string()).min(1).max(8),
-  tabIds: z.array(z.string()).min(2).max(6),
+  glyphCellIds: z.array(z.string()).min(1).max(40),
+  tabIds: z.array(z.string()).min(2).max(20),
 });
 export type CompareGlyphsBody = z.infer<typeof CompareGlyphsBody>;
 

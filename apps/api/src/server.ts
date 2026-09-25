@@ -46,6 +46,8 @@ import { newId } from "./context";
 import { ALLOWED_UPLOAD_EXTENSIONS, inspectStoredFile, saveStream, uploadKind } from "./uploads";
 import { assetFileAccess, sendFileStream } from "./files";
 import { registerShowcaseRoutes } from "./showcase";
+import { registerEditingRoutes } from "./editing";
+import { registerReadingRoutes } from "./readings";
 import { createBackup, exportSetBundle, importSetBundle, listBackups, type SetBundle } from "./backup";
 import { ensureBootstrapAdmin, ensureDevUsers, registerAuth } from "./auth";
 import { canAccessSet, effectiveSetRole } from "./auth/policy";
@@ -62,6 +64,7 @@ import {
   documentClaims,
   documents,
   evidenceRepo,
+  readings as readingsRepo,
   frontierItems,
   glyphCells,
   hypotheses,
@@ -673,6 +676,8 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
         .filter((m) => (runId ? m.id.startsWith(`xm-${runId}-`) : false)),
       sourceGenealogy: buildLineages(uniqueDocs),
       decision: conclusion?.gateResult ?? null,
+      readings: readingsRepo.listByCell(ctx.db, id),
+      adoptedReadingId: stored.entity.adoptedReadingId,
       modelVersion: MODEL_VERSION,
       corpusVersion: CORPUS_VERSION,
       rightsState: tab.rightsState,
@@ -1095,6 +1100,8 @@ export function buildServer(overrides: Partial<AppConfig> = {}): FastifyInstance
 
   registerThreeDRoutes(app, ctx.db);
   registerShowcaseRoutes(app, ctx.db);
+  registerEditingRoutes(app, ctx.db);
+  registerReadingRoutes(app, ctx.db);
 
   // ── 백업 (PI) ──
   app.post("/api/admin/backup", async (req) => {

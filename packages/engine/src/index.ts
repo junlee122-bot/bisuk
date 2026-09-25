@@ -14,3 +14,5 @@ export * from "./heightfield";
 export * from "./meshBuild";
 export * from "./meshIngest";
 export * from "./autoLod";
+export * from "./transcription";
+export * from "./readingTable";

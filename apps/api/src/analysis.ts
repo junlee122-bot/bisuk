@@ -203,11 +203,17 @@ export function runAndPersistAnalysis(
   const topHypId = result.topCandidate
     ? `hyp-${runId}-${result.topCandidate.candidateCharacter}`
     : null;
+  // 연구실이 검토·채택한 판독이 있는 셀은 자동 분석이 상태를 덮어쓰지 않는다 (결과는 run으로만 보존)
+  const humanAdopted = Boolean(stored.entity.adoptedReadingId);
   const updatedCell: StoredGlyphCell = {
     entity: {
       ...stored.entity,
-      readingStatus: outcomeToReadingStatus(outcome),
-      acceptedCandidateId: outcome === "AUTO_ACCEPTED" ? topHypId : null,
+      readingStatus: humanAdopted ? stored.entity.readingStatus : outcomeToReadingStatus(outcome),
+      acceptedCandidateId: humanAdopted
+        ? stored.entity.acceptedCandidateId
+        : outcome === "AUTO_ACCEPTED"
+          ? topHypId
+          : null,
       version: stored.entity.version + 1,
     },
     extra: { ...stored.extra, latestRunId: runId },
