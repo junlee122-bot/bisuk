@@ -110,7 +110,7 @@ export function GlobalHeader() {
 
   return (
     <header
-      className="flex h-14 shrink-0 items-center gap-3 border-b border-line-soft bg-[var(--surface-elevated)] px-4 backdrop-blur"
+      className="relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-line-soft bg-[var(--surface-elevated)] px-4 backdrop-blur"
       data-testid="global-header"
     >
       <Link href="/" className="flex items-baseline gap-2" aria-label="석문 Studio 홈">

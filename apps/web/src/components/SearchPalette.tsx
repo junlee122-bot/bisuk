@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { researchApi } from "@/lib/api";
@@ -53,7 +54,8 @@ export function SearchPalette({ setId }: { setId: string | null }) {
       >
         검색 <kbd className="rounded border border-line-soft px-1 text-[10px]">Ctrl K</kbd>
       </button>
-      {open && (
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-24" onClick={() => setOpen(false)}>
           <div
             role="dialog"
@@ -137,8 +139,9 @@ export function SearchPalette({ setId }: { setId: string | null }) {
               </div>
             )}
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 }

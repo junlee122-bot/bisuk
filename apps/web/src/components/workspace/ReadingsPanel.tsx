@@ -157,7 +157,7 @@ function ReadingRow({ r, adopted, onChanged }: { r: ReadingWithCount; adopted: b
     onError: (e) => setError(e instanceof ApiRequestError && e.status === 409 ? `${e.message} — 새로고침 후 다시 시도하세요` : (e as Error).message),
   });
   return (
-    <li className={`rounded p-1.5 ${adopted ? "bg-[color-mix(in_srgb,var(--state-success)_12%,transparent)]" : "bg-surface-2"}`} data-testid={`reading-${r.id}`}>
+    <li className={`rounded p-1.5 ${adopted ? "bg-[color-mix(in_srgb,var(--state-success)_12%,transparent)]" : "bg-surface-2"}`} data-testid="reading-row" data-reading-id={r.id}>
       <div className="flex flex-wrap items-center gap-1">
         <span className="text-base" data-testid="reading-token">{formatReadingToken(r)}</span>
         {adopted && <span className="badge badge-ok" data-testid="reading-adopted">연구실 채택</span>}
